@@ -31,19 +31,22 @@ function Read-Line([string]$Prompt, [string]$Default) {
 }
 
 function Patch-Server([string]$Address, [int]$Port) {
+    $ip = $Address
+    $portNum = $Port
+
     $content = Get-Content -Path $ConnectionsManagerFile -Raw -Encoding UTF8
     $pattern = 'TcpAddress\("([^"]*)",\s*(\d+),\s*0,\s*""\)'
     $newContent = [regex]::Replace($content, $pattern, {
-        'TcpAddress("' + $Address + '", ' + $Port + ', 0, "")'
+        'TcpAddress("' + $ip + '", ' + $portNum + ', 0, "")'
     })
     [System.IO.File]::WriteAllText($ConnectionsManagerFile, $newContent, (New-Object System.Text.UTF8Encoding $false))
 
     $dcContent = Get-Content -Path $DatacenterFile -Raw -Encoding UTF8
     $portPattern = 'const int32_t \*defaultPorts = new int32_t\[4\] \{-1,\s*(\d+),\s*-1,\s*-1\};'
-    $newDc = [regex]::Replace($dcContent, $portPattern, "const int32_t *defaultPorts = new int32_t[4] {-1, $Port, -1, -1};")
+    $newDc = [regex]::Replace($dcContent, $portPattern, "const int32_t *defaultPorts = new int32_t[4] {-1, $portNum, -1, -1};")
     [System.IO.File]::WriteAllText($DatacenterFile, $newDc, (New-Object System.Text.UTF8Encoding $false))
 
-    Write-Ok "Server patched: ${Host}:$Port"
+    Write-Ok "Server patched: ${ip}:$portNum"
 }
 
 function Patch-Api {
