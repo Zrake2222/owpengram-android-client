@@ -285,7 +285,7 @@ public class ConnectionsManager extends BaseController {
         if (preferences.contains("pushConnection")) {
             return preferences.getBoolean("pushConnection", true);
         } else {
-            return MessagesController.getMainSettings(UserConfig.selectedAccount).getBoolean("backgroundConnection", false);
+            return MessagesController.getMainSettings(UserConfig.selectedAccount).getBoolean("backgroundConnection", BuildVars.FORCE_BACKGROUND_WORK);
         }
     }
 

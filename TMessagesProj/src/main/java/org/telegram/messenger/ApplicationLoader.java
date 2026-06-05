@@ -262,6 +262,7 @@ public class ApplicationLoader extends Application {
 
         ApplicationLoader app = (ApplicationLoader) ApplicationLoader.applicationContext;
         app.initPushServices();
+        ApplicationLoader.ensureBackgroundWorkEnabled();
         if (BuildVars.LOGS_ENABLED) {
             FileLog.d("app initied");
         }
@@ -340,28 +341,74 @@ public class ApplicationLoader extends Application {
 
         applicationHandler = new Handler(applicationContext.getMainLooper());
 
-        AndroidUtilities.runOnUIThread(ApplicationLoader::startPushService);
+        AndroidUtilities.runOnUIThread(() -> {
+            ApplicationLoader.ensureBackgroundWorkEnabled();
+            ApplicationLoader.startPushService();
+        });
 
         LauncherIconController.tryFixLauncherIconIfNeeded();
         ProxyRotationController.init();
     }
 
-    public static void startPushService() {
+    private static final String BACKGROUND_MIGRATION_KEY = "owpengramBackgroundV1";
+
+    public static boolean isPushServiceEnabled() {
         SharedPreferences preferences = MessagesController.getGlobalNotificationsSettings();
-        boolean enabled;
         if (preferences.contains("pushService")) {
-            enabled = preferences.getBoolean("pushService", true);
-        } else {
-            enabled = MessagesController.getMainSettings(UserConfig.selectedAccount).getBoolean("keepAliveService", false);
+            return preferences.getBoolean("pushService", true);
         }
-        if (enabled) {
+        return MessagesController.getMainSettings(UserConfig.selectedAccount).getBoolean("keepAliveService", BuildVars.FORCE_BACKGROUND_WORK);
+    }
+
+    public static void ensureBackgroundWorkEnabled() {
+        if (!BuildVars.FORCE_BACKGROUND_WORK) {
+            return;
+        }
+        SharedPreferences global = MessagesController.getGlobalNotificationsSettings();
+        if (!global.getBoolean(BACKGROUND_MIGRATION_KEY, false)) {
+            global.edit()
+                    .putBoolean("pushService", true)
+                    .putBoolean("pushConnection", true)
+                    .putBoolean(BACKGROUND_MIGRATION_KEY, true)
+                    .apply();
+            for (int a = 0; a < UserConfig.MAX_ACCOUNT_COUNT; a++) {
+                if (!UserConfig.getInstance(a).isClientActivated()) {
+                    continue;
+                }
+                SharedPreferences main = MessagesController.getMainSettings(a);
+                main.edit()
+                        .putBoolean("keepAliveService", true)
+                        .putBoolean("backgroundConnection", true)
+                        .apply();
+                MessagesController messagesController = MessagesController.getInstance(a);
+                messagesController.keepAliveService = true;
+                messagesController.backgroundConnection = true;
+                ConnectionsManager.getInstance(a).setPushConnectionEnabled(true);
+            }
+        }
+    }
+
+    public static void startPushService() {
+        if (applicationContext == null) {
+            return;
+        }
+        if (isPushServiceEnabled()) {
             try {
-                applicationContext.startService(new Intent(applicationContext, NotificationsService.class));
+                Intent intent = new Intent(applicationContext, NotificationsService.class);
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    applicationContext.startForegroundService(intent);
+                } else {
+                    applicationContext.startService(intent);
+                }
+            } catch (Throwable e) {
+                FileLog.e(e);
+            }
+        } else {
+            try {
+                applicationContext.stopService(new Intent(applicationContext, NotificationsService.class));
             } catch (Throwable ignore) {
 
             }
-        } else {
-            applicationContext.stopService(new Intent(applicationContext, NotificationsService.class));
         }
     }
 
