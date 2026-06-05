@@ -20,7 +20,19 @@ To change the server address, replace all instances of the server IP address in 
 
 ## 📚 Build Instructions & Documentation
 
-For detailed build instructions, system requirements, and comprehensive documentation, please refer to the original [Telegram for Android repository](https://github.com/DrKLO/Telegram).
+### Interactive build (Windows)
+
+Double-click or run from any terminal:
+
+```bat
+build-android.cmd
+```
+
+The script will guide you through server IP, API credentials, submodules, SDK setup, and Gradle build. Settings are saved to `.owpengram-build.local.json` (gitignored).
+
+Requirements: **JDK 17**, **Android SDK** (API 35, build-tools 35.0.0, NDK 21.4.7075529), **Git**.
+
+For manual steps and other platforms, see the original [Telegram for Android repository](https://github.com/DrKLO/Telegram).
 
 ## 💬 Community
 

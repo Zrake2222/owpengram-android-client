@@ -4,6 +4,8 @@ build/
 obj/
 *.iml
 local.properties
+*.local.json
+/logs/
 TMessagesProj/.cxx/
 TMessagesProj/jniLibs/
 TMessagesProj/jniRes/
