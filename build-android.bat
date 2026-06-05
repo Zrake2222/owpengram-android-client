@@ -1,7 +1,7 @@
 @echo off
 setlocal
 set "ROOT=%~dp0"
-set "PS1=%ROOT%scripts\interactive-build.ps1"
+set "PS1=%ROOT%scripts\build.ps1"
 
 if not exist "%PS1%" (
   echo [ERROR] Missing script: %PS1%
