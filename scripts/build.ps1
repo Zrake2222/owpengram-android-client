@@ -19,6 +19,33 @@ $ApkPath = Join-Path $RepoRoot 'TMessagesProj_App\build\outputs\apk\afat\debug\a
 $TestApiId = '17349'
 $TestApiHash = '344583e45741c457fe1862106095a5eb'
 
+function Get-ApiCredentials {
+    $candidates = @(
+        (Join-Path $RepoRoot 'api_credentials.local.ps1'),
+        (Join-Path (Split-Path $RepoRoot -Parent) 'api_credentials.local.ps1')
+    )
+    foreach ($file in $candidates) {
+        if (-not (Test-Path $file)) { continue }
+        . $file
+        if ([string]::IsNullOrWhiteSpace($TDESKTOP_API_ID) -or [string]::IsNullOrWhiteSpace($TDESKTOP_API_HASH)) {
+            throw "$file must set `$TDESKTOP_API_ID and `$TDESKTOP_API_HASH"
+        }
+        return @{
+            Id = $TDESKTOP_API_ID.Trim()
+            Hash = $TDESKTOP_API_HASH.Trim()
+            Source = (Split-Path $file -Leaf)
+        }
+    }
+
+    Write-Host '[WARN] api_credentials.local.ps1 not found — using TEST credentials.' -ForegroundColor Yellow
+    Write-Host '       Copy api_credentials.local.ps1.example and add your api_id/api_hash for Telegram login.' -ForegroundColor Yellow
+    return @{
+        Id = $TestApiId
+        Hash = $TestApiHash
+        Source = 'test defaults'
+    }
+}
+
 function Write-Step([string]$Text) { Write-Host "`n>> $Text" -ForegroundColor Yellow }
 function Write-Ok([string]$Text)   { Write-Host "[OK] $Text" -ForegroundColor Green }
 function Write-Err([string]$Text)   { Write-Host "[X] $Text" -ForegroundColor Red }
@@ -49,12 +76,12 @@ function Patch-Server([string]$Address, [int]$Port) {
     Write-Ok "Server patched: ${ip}:$portNum"
 }
 
-function Patch-Api {
+function Patch-Api([string]$ApiId, [string]$ApiHash) {
     $content = Get-Content -Path $BuildVarsFile -Raw -Encoding UTF8
-    $content = [regex]::Replace($content, 'public static int APP_ID = \d+;', "public static int APP_ID = $TestApiId;")
-    $content = [regex]::Replace($content, 'public static String APP_HASH = "[^"]*";', "public static String APP_HASH = `"$TestApiHash`";")
+    $content = [regex]::Replace($content, 'public static int APP_ID = \d+;', "public static int APP_ID = $ApiId;")
+    $content = [regex]::Replace($content, 'public static String APP_HASH = "[^"]*";', "public static String APP_HASH = `"$ApiHash`";")
     [System.IO.File]::WriteAllText($BuildVarsFile, $content, (New-Object System.Text.UTF8Encoding $false))
-    Write-Ok "API patched (test credentials)"
+    Write-Ok "API patched (id $ApiId)"
 }
 
 function Find-AndroidSdk {
@@ -152,7 +179,9 @@ try {
 
     Write-Step "Patch server -> ${ServerHost}:$ServerPort"
     Patch-Server -Address $ServerHost -Port $ServerPort
-    Patch-Api
+    $api = Get-ApiCredentials
+    Write-Ok "API credentials: $($api.Source) (id $($api.Id))"
+    Patch-Api -ApiId $api.Id -ApiHash $api.Hash
 
     Write-Step 'Check tools'
     if (-not (Get-Command git -ErrorAction SilentlyContinue)) { throw 'Missing git in PATH' }

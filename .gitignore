@@ -4,6 +4,7 @@ build/
 obj/
 *.iml
 local.properties
+api_credentials.local.ps1
 *.local.json
 /logs/
 TMessagesProj/.cxx/
