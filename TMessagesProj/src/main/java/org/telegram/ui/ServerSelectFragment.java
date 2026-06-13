@@ -32,6 +32,7 @@ import org.telegram.ui.ActionBar.AlertDialog;
 import org.telegram.ui.ActionBar.BaseFragment;
 import org.telegram.ui.ActionBar.Theme;
 import org.telegram.ui.Components.LayoutHelper;
+import org.telegram.ui.Components.Premium.LimitReachedBottomSheet;
 import org.telegram.ui.Components.RecyclerListView;
 
 import java.net.InetSocketAddress;
@@ -235,6 +236,18 @@ public class ServerSelectFragment extends BaseFragment {
 
     private void joinServer(OwpengramServer server) {
         if (server == null) return;
+        // The premium account-count limit applies only to Telegram accounts
+        // (custom servers are limited solely by the total free slots). Enforce it
+        // here once the chosen server's type is known, like the desktop client.
+        int targetAccount = (loginAccount >= 0) ? loginAccount : currentAccount;
+        if (server.isTelegram
+                && !UserConfig.getInstance(targetAccount).isClientActivated()
+                && !OwpengramServers.canAddTelegramAccount()
+                && getParentActivity() != null) {
+            showDialog(new LimitReachedBottomSheet(this, getContext(),
+                    LimitReachedBottomSheet.TYPE_ACCOUNTS, currentAccount, null));
+            return;
+        }
         // Online check first, exactly like desktop CheckServerOnline before joining.
         pingPool.submit(() -> {
             int ms = pingTcp(server.host, server.port);

@@ -3107,11 +3107,24 @@ public class LocaleController {
         }
     }
 
+    /**
+     * OwpenGram: never pull language packs from the server — they may be missing
+     * or malformed on self-hosted backends and would break the UI. Only the
+     * built-in (bundled) language files are used. Mirrors the desktop client's
+     * Owpengram::ShouldUseCloudLangPack() == false.
+     */
+    public static boolean shouldUseCloudLangPack() {
+        return false;
+    }
+
     public void loadRemoteLanguages(final int currentAccount) {
         loadRemoteLanguages(currentAccount, true);
     }
 
     public void loadRemoteLanguages(final int currentAccount, boolean applyCurrent) {
+        if (!shouldUseCloudLangPack()) {
+            return;
+        }
         if (loadingRemoteLanguages) {
             return;
         }
@@ -3188,6 +3201,13 @@ public class LocaleController {
 
     private int applyRemoteLanguage(LocaleInfo localeInfo, String langCode, boolean force, final int currentAccount, Runnable onDone) {
         if (localeInfo == null || !localeInfo.isRemote() && !localeInfo.isUnofficial()) {
+            return 0;
+        }
+        if (!shouldUseCloudLangPack()) {
+            // Cloud language packs are disabled — never fetch from the server.
+            if (onDone != null) {
+                onDone.run();
+            }
             return 0;
         }
         FileLog.d("applyRemoteLanguage " + langCode + " force=" + force + " currentAccount=" + currentAccount);

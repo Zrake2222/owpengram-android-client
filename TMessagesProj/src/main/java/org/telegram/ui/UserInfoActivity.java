@@ -196,6 +196,11 @@ public class UserInfoActivity extends UniversalFragment implements NotificationC
         });
     }
 
+    private String serverLabel(int account) {
+        String name = org.telegram.owpengram.OwpengramServers.serverNameForAccount(account);
+        return name != null ? name : getString(R.string.AppName);
+    }
+
     @Keep
     public int firstNameRow;
     @Keep
@@ -298,11 +303,24 @@ public class UserInfoActivity extends UniversalFragment implements NotificationC
             items.add(InfoCell.Factory.of(BUTTON_ADD_ACCOUNT, R.drawable.outline_add_account, getString(R.string.AddAccount), null, 0).accent());
         }
         if (!accountNumbers.isEmpty()) {
-            if (!hasAddAccount) {
-                items.add(UItem.asHeader(getString(R.string.SettingsAccounts)));
+            // Group the switchable accounts by server, with a header per server group.
+            java.util.List<Integer> order = new java.util.ArrayList<>();
+            for (int i = 0; i < accountNumbers.size(); i++) {
+                order.add(i);
             }
-            for (int i = 0; i < accountNumbers.size(); ++i) {
-                items.add(SettingsActivity.AccountCell.Factory.of(i, accountNumbers.get(i)));
+            java.util.Collections.sort(order, (a, b) -> {
+                int c = serverLabel(accountNumbers.get(a)).compareToIgnoreCase(serverLabel(accountNumbers.get(b)));
+                return c != 0 ? c : Integer.compare(a, b);
+            });
+            String lastServer = null;
+            for (int idx : order) {
+                int account = accountNumbers.get(idx);
+                String serverName = serverLabel(account);
+                if (!serverName.equals(lastServer)) {
+                    items.add(UItem.asHeader(serverName));
+                    lastServer = serverName;
+                }
+                items.add(SettingsActivity.AccountCell.Factory.of(idx, account));
             }
             if (!UserConfig.hasPremiumOnAccounts()) {
                 final int moreAccounts = Math.max(0, UserConfig.getMaxAccountCount() - UserConfig.getActivatedAccountsCount());
@@ -344,22 +362,12 @@ public class UserInfoActivity extends UniversalFragment implements NotificationC
     @Override
     protected void onClick(UItem item, View view, int position, float x, float y) {
         if (item.id == BUTTON_ADD_ACCOUNT) {
-            int freeAccounts = 0;
-            Integer availableAccount = null;
-            for (int a = UserConfig.MAX_ACCOUNT_COUNT - 1; a >= 0; a--) {
-                if (!UserConfig.getInstance(a).isClientActivated()) {
-                    freeAccounts++;
-                    if (availableAccount == null) {
-                        availableAccount = a;
-                    }
-                }
-            }
-            if (!UserConfig.hasPremiumOnAccounts()) {
-                freeAccounts -= (UserConfig.MAX_ACCOUNT_COUNT - UserConfig.MAX_ACCOUNT_DEFAULT_COUNT);
-            }
-            if (freeAccounts > 0 && availableAccount != null) {
+            // Any account (custom server) may use any free slot; the premium cap is
+            // enforced per-server (Telegram only) in ServerSelectFragment.
+            int availableAccount = org.telegram.owpengram.OwpengramServers.firstFreeAccountSlot();
+            if (availableAccount >= 0) {
                 presentFragment(new ServerSelectFragment(availableAccount));
-            } else if (!UserConfig.hasPremiumOnAccounts()) {
+            } else {
                 showDialog(new LimitReachedBottomSheet(this, getContext(), TYPE_ACCOUNTS, currentAccount, null));
             }
         } else if (item.instanceOf(SettingsActivity.AccountCell.Factory.class)) {

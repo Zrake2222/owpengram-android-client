@@ -24,6 +24,9 @@ public class OwpengramServers {
     public static final String ID_TEAMGRAM  = "teamgram";
     public static final String ID_TELEGRAM  = "telegram";
 
+    /** Public repository of the OwpenGram server, opened from the settings entry. */
+    public static final String SERVER_REPO_URL = "https://github.com/owpengram/owpengram-server";
+
     private static final String DEFAULT_HOST = "127.0.0.1";
     private static final int    DEFAULT_PORT = 10443;
 
@@ -309,5 +312,54 @@ public class OwpengramServers {
             }
         }
         return -1;
+    }
+
+    /**
+     * Display name of the server an account is on, or null if unknown. Used for
+     * the main app header so it shows the current server instead of "Telegram".
+     */
+    public static String serverNameForAccount(int accountNum) {
+        OwpengramServer s = getServerForAccount(accountNum);
+        return (s != null) ? s.name : null;
+    }
+
+    // --- Account limits (mirrors desktop: premium cap is Telegram-only) ---
+
+    /** First unused account slot (any server), or -1 if all slots are taken. */
+    public static int firstFreeAccountSlot() {
+        for (int a = 0; a < UserConfig.MAX_ACCOUNT_COUNT; a++) {
+            if (!UserConfig.getInstance(a).isClientActivated()) {
+                return a;
+            }
+        }
+        return -1;
+    }
+
+    /** Number of activated accounts on a Telegram-official server. */
+    public static int countTelegramAccounts() {
+        int n = 0;
+        for (int a = 0; a < UserConfig.MAX_ACCOUNT_COUNT; a++) {
+            if (UserConfig.getInstance(a).isClientActivated()) {
+                OwpengramServer s = getServerForAccount(a);
+                if (s != null && s.isTelegram) n++;
+            }
+        }
+        return n;
+    }
+
+    /**
+     * Telegram-account cap (premium raises it). Only Telegram accounts count
+     * toward this; custom/self-hosted accounts are limited solely by the hard
+     * total slot count (MAX_ACCOUNT_COUNT).
+     */
+    public static int telegramAccountLimit() {
+        return UserConfig.hasPremiumOnAccounts()
+                ? UserConfig.MAX_ACCOUNT_COUNT
+                : UserConfig.MAX_ACCOUNT_DEFAULT_COUNT;
+    }
+
+    /** True if another Telegram account can still be added under the premium cap. */
+    public static boolean canAddTelegramAccount() {
+        return countTelegramAccounts() < telegramAccountLimit();
     }
 }

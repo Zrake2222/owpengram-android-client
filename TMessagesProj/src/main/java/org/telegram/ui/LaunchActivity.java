@@ -1209,6 +1209,58 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
         switchingAccount = false;
     }
 
+    /**
+     * Telegram links (t.me / tg://) only work on a Telegram-official account. When
+     * the active account is on a custom/self-hosted server, this either offers to
+     * switch to a Telegram account (and re-opens the link there) or, if there is no
+     * Telegram account, explains that one is required.
+     *
+     * Returns true when the link may be processed right now (already on Telegram);
+     * false when handling was deferred to a dialog.
+     */
+    private boolean routeTelegramLinkToTelegramAccount(Intent intent, int[] intentAccount, Browser.Progress progress) {
+        OwpengramServer server = OwpengramServers.getServerForAccount(intentAccount[0]);
+        if (server == null || server.isTelegram) {
+            return true; // already on a Telegram account (or legacy/unknown — allow)
+        }
+        if (progress != null) {
+            progress.end();
+        }
+        final int tgAccount = OwpengramServers.firstTelegramAccount();
+        if (tgAccount < 0) {
+            showNeedTelegramAccountDialog();
+            return false;
+        }
+        final OwpengramServer tgServer = OwpengramServers.getServerForAccount(tgAccount);
+        final String name = (tgServer != null) ? tgServer.name : "Telegram";
+        final Intent reintent = new Intent(intent);
+        reintent.putExtra("currentAccount", tgAccount);
+        try {
+            AlertDialog.Builder b = new AlertDialog.Builder(this);
+            b.setTitle(LocaleController.getString(R.string.AppName));
+            b.setMessage("This is a Telegram link. Switch to your " + name + " account to open it?");
+            b.setPositiveButton(LocaleController.getString(R.string.OK), (d, w) -> {
+                switchToAccount(tgAccount, true);
+                AndroidUtilities.runOnUIThread(() -> handleIntent(reintent, false, false, false, null, true, true), 200);
+            });
+            b.setNegativeButton(LocaleController.getString(R.string.Cancel), null);
+            b.show();
+        } catch (Exception ignore) {
+        }
+        return false;
+    }
+
+    private void showNeedTelegramAccountDialog() {
+        try {
+            AlertDialog.Builder b = new AlertDialog.Builder(this);
+            b.setTitle(LocaleController.getString(R.string.AppName));
+            b.setMessage("This link can only be opened with an official Telegram account. Add or switch to a Telegram account first.");
+            b.setPositiveButton(LocaleController.getString(R.string.OK), null);
+            b.show();
+        } catch (Exception ignore) {
+        }
+    }
+
     private void switchToAvailableAccountOrLogout() {
         int account = -1;
         for (int a = 0; a < UserConfig.MAX_ACCOUNT_COUNT; a++) {
@@ -1929,6 +1981,10 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
                                     Matcher prefixMatcher = PREFIX_T_ME_PATTERN.matcher(host);
                                     boolean isPrefix = prefixMatcher.find();
                                     if (host.equals("telegram.me") || host.equals("t.me") || host.equals("telegram.dog") || isPrefix) {
+                                        // t.me links require a Telegram-official account.
+                                        if (!routeTelegramLinkToTelegramAccount(intent, intentAccount, progress)) {
+                                            return false;
+                                        }
                                         if (isPrefix) {
                                             data = Uri.parse("https://t.me/" + prefixMatcher.group(1) + (TextUtils.isEmpty(data.getPath()) ? "" : data.getPath()) + (TextUtils.isEmpty(data.getQuery()) ? "" : "?" + data.getQuery()));
                                         }
@@ -2233,16 +2289,9 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
                                     break;
                                 }
                                 case "tg": {
-                                    // tg:// deep links are only valid on Telegram-official accounts
-                                    {
-                                        OwpengramServer currentServer = OwpengramServers.getServerForAccount(currentAccount);
-                                        if (currentServer == null || !currentServer.isTelegram) {
-                                            int tgAccount = OwpengramServers.firstTelegramAccount();
-                                            if (tgAccount < 0) {
-                                                break; // no Telegram account - ignore
-                                            }
-                                            switchToAccount(tgAccount, true);
-                                        }
+                                    // tg:// deep links are only valid on Telegram-official accounts.
+                                    if (!routeTelegramLinkToTelegramAccount(intent, intentAccount, progress)) {
+                                        return false;
                                     }
                                     String url = data.toString();
                                     if (url.startsWith("tg:premium_offer") || url.startsWith("tg://premium_offer")) {

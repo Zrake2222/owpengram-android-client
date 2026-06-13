@@ -335,43 +335,39 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
             }
         }
         Collections.sort(accountNumbers, (o1, o2) -> {
+            // Group by server first, then by login time within a server.
+            int c = serverLabel(o1).compareToIgnoreCase(serverLabel(o2));
+            if (c != 0) {
+                return c;
+            }
             long l1 = UserConfig.getInstance(o1).loginTime;
             long l2 = UserConfig.getInstance(o2).loginTime;
-            if (l1 > l2) {
-                return 1;
-            } else if (l1 < l2) {
-                return -1;
-            }
-            return 0;
+            return Long.compare(l1, l2);
         });
 
         ItemOptions o = ItemOptions.makeOptions(this, button);
         if (UserConfig.getActivatedAccountsCount() < UserConfig.MAX_ACCOUNT_COUNT) {
             o.add(R.drawable.msg_addbot, getString(R.string.AddAccount), () -> {
-                int freeAccounts = 0;
-                Integer availableAccount = null;
-                for (int a = UserConfig.MAX_ACCOUNT_COUNT - 1; a >= 0; a--) {
-                    if (!UserConfig.getInstance(a).isClientActivated()) {
-                        freeAccounts++;
-                        if (availableAccount == null) {
-                            availableAccount = a;
-                        }
-                    }
-                }
-                if (!UserConfig.hasPremiumOnAccounts()) {
-                    freeAccounts -= (UserConfig.MAX_ACCOUNT_COUNT - UserConfig.MAX_ACCOUNT_DEFAULT_COUNT);
-                }
-                if (freeAccounts > 0 && availableAccount != null) {
+                // Any account (custom server) may use any free slot; the premium cap
+                // is enforced per-server (Telegram only) in ServerSelectFragment.
+                int availableAccount = org.telegram.owpengram.OwpengramServers.firstFreeAccountSlot();
+                if (availableAccount >= 0) {
                     presentFragment(new ServerSelectFragment(availableAccount));
-                } else if (!UserConfig.hasPremiumOnAccounts()) {
+                } else {
                     showDialog(new LimitReachedBottomSheet(this, getContext(), TYPE_ACCOUNTS, currentAccount, null));
                 }
             });
         }
         if (accountNumbers.size() > 0) {
             if (o.getItemsCount() > 0) o.addGap();
+            String lastServer = null;
             for (int acc : accountNumbers) {
                 final int account = acc;
+                final String serverName = serverLabel(acc);
+                if (lastServer != null && !serverName.equals(lastServer)) {
+                    o.addGap(); // separator between server groups
+                }
+                lastServer = serverName;
                 final View btn = accountView(acc, currentAccount == acc);
                 btn.setOnClickListener(v -> {
                     if (currentAccount == account) return;
@@ -392,6 +388,11 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
         bg.getPaint().setShadowLayer(dp(6), 0, dp(1), Theme.multAlpha(0xFF000000, 0.15f));
         o.setScrimViewBackground(bg);
         o.show();
+    }
+
+    private String serverLabel(int account) {
+        String name = org.telegram.owpengram.OwpengramServers.serverNameForAccount(account);
+        return name != null ? name : getString(R.string.AppName);
     }
 
     public LinearLayout accountView(int account, boolean selected) {
