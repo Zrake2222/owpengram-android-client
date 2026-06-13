@@ -30,47 +30,77 @@ public class OwpengramServers {
     private static final String TEAMGRAM_HOST = "43.155.11.190";
     private static final int    TEAMGRAM_PORT = 10443;
 
+    // RSA key shared by OwpenGram and Teamgram (single-server MTProto forks)
+    static final String OWPENGRAM_RSA_KEY =
+        "-----BEGIN RSA PUBLIC KEY-----\n" +
+        "MIIBCgKCAQEAvKLEOWTzt9Hn3/9Kdp/RdHcEhzmd8xXeLSpHIIzaXTLJDw8BhJy1\n" +
+        "jR/iqeG8Je5yrtVabqMSkA6ltIpgylH///FojMsX1BHu4EPYOXQgB0qOi6kr08iX\n" +
+        "ZIH9/iOPQOWDsL+Lt8gDG0xBy+sPe/2ZHdzKMjX6O9B4sOsxjFrk5qDoWDrioJor\n" +
+        "AJ7eFAfPpOBf2w73ohXudSrJE0lbQ8pCWNpMY8cB9i8r+WBitcvouLDAvmtnTX7a\n" +
+        "khoDzmKgpJBYliAY4qA73v7u5UIepE8QgV0jCOhxJCPubP8dg+/PlLLVKyxU5Cdi\n" +
+        "QtZj2EMy4s9xlNKzX8XezE0MHEa6bQpnFwIDAQAB\n" +
+        "-----END RSA PUBLIC KEY-----";
+    static final long OWPENGRAM_RSA_FINGERPRINT = 0xa9e071c1771060cdL;
+
+    // Official Telegram production RSA key (restored from original Android source)
+    static final String TELEGRAM_RSA_KEY =
+        "-----BEGIN RSA PUBLIC KEY-----\n" +
+        "MIIBCgKCAQEA6LszBcC1LGzyr992NzE0ieY+BSaOW622Aa9Bd4ZHLl+TuFQ4lo4g\n" +
+        "5nKaMBwK/BIb9xUfg0Q29/2mgIR6Zr9krM7HjuIcCzFvDtr+L0GQjae9H0pRB2OO\n" +
+        "62cECs5HKhT5DZ98K33vmWiLowc621dQuwKWSQKjWf50XYFw42h21P2KXUGyp2y/\n" +
+        "+aEyZ+uVgLLQbRA1dEjSDZ2iGRy12Mk5gpYc397aYp438fsJoHIgJ2lgMv5h7WY9\n" +
+        "t6N/byY9Nw9p21Og3AoXSL2q/2IJ1WRUhebgAdGVMlV1fkuOQoEzR7EdpqtQD9Cs\n" +
+        "5+bfo3Nhmcyvk5ftB0WkJ9z6bNZ7yxrP8wIDAQAB\n" +
+        "-----END RSA PUBLIC KEY-----";
+    static final long TELEGRAM_RSA_FINGERPRINT = 0xd09d1d85de64fd85L;
+
     // --- Built-in servers ---
 
     public static OwpengramServer owpengramServer() {
         OwpengramServer s = new OwpengramServer();
-        s.id          = ID_OWPENGRAM;
-        s.name        = "OwpenGram";
-        s.description = "Default OwpenGram server configured for this client.";
-        s.host        = DEFAULT_HOST;
-        s.port        = DEFAULT_PORT;
-        s.isOfficial  = true;
-        s.isTelegram  = false;
-        s.multiDc     = false;
-        s.mainDcId    = 1;
+        s.id                 = ID_OWPENGRAM;
+        s.name               = "OwpenGram";
+        s.description        = "Default OwpenGram server configured for this client.";
+        s.host               = DEFAULT_HOST;
+        s.port               = DEFAULT_PORT;
+        s.isOfficial         = true;
+        s.isTelegram         = false;
+        s.multiDc            = false;
+        s.mainDcId           = 1;
+        s.rsaPublicKey       = OWPENGRAM_RSA_KEY;
+        s.rsaKeyFingerprint  = OWPENGRAM_RSA_FINGERPRINT;
         return s;
     }
 
     public static OwpengramServer teamgramServer() {
         OwpengramServer s = new OwpengramServer();
-        s.id          = ID_TEAMGRAM;
-        s.name        = "Teamgram";
-        s.description = "Open-source MTProto server compatible with Telegram clients. Default test sign-in code: 12345.";
-        s.host        = TEAMGRAM_HOST;
-        s.port        = TEAMGRAM_PORT;
-        s.isOfficial  = true;
-        s.isTelegram  = false;
-        s.multiDc     = false;
-        s.mainDcId    = 1;
+        s.id                 = ID_TEAMGRAM;
+        s.name               = "Teamgram";
+        s.description        = "Open-source MTProto server compatible with Telegram clients. Default test sign-in code: 12345.";
+        s.host               = TEAMGRAM_HOST;
+        s.port               = TEAMGRAM_PORT;
+        s.isOfficial         = true;
+        s.isTelegram         = false;
+        s.multiDc            = false;
+        s.mainDcId           = 2;  // Teamgram assigns users to DC2 (matches desktop)
+        s.rsaPublicKey       = OWPENGRAM_RSA_KEY;
+        s.rsaKeyFingerprint  = OWPENGRAM_RSA_FINGERPRINT;
         return s;
     }
 
     public static OwpengramServer telegramServer() {
         OwpengramServer s = new OwpengramServer();
-        s.id          = ID_TELEGRAM;
-        s.name        = "Telegram";
-        s.description = "Official Telegram cloud. Sign in with your Telegram account.";
-        s.host        = "149.154.167.51";
-        s.port        = 443;
-        s.isOfficial  = true;
-        s.isTelegram  = true;
-        s.multiDc     = true;
-        s.mainDcId    = 2;
+        s.id                 = ID_TELEGRAM;
+        s.name               = "Telegram";
+        s.description        = "Official Telegram cloud. Sign in with your Telegram account.";
+        s.host               = "149.154.167.51";
+        s.port               = 443;
+        s.isOfficial         = true;
+        s.isTelegram         = true;
+        s.multiDc            = true;
+        s.mainDcId           = 2;
+        s.rsaPublicKey       = TELEGRAM_RSA_KEY;
+        s.rsaKeyFingerprint  = TELEGRAM_RSA_FINGERPRINT;
         return s;
     }
 
@@ -174,25 +204,54 @@ public class OwpengramServers {
     // --- DC application ---
 
     /**
-     * Applies server host:port to all DC 1-5 of the given account so that
-     * FILE_MIGRATE / NETWORK_MIGRATE responses resolve correctly.
+     * Applies the selected server to the given account, atomically on the network
+     * thread. Mirrors desktop ApplyServerToDcOptions + RestoreServerToAccount:
+     *   - Telegram:       restore real Telegram DC 1-5, unlock, Telegram RSA key
+     *   - Single-server:  map DC 1-5 all to one host:port, lock, server RSA key
+     *
+     * resetKeys=true clears auth keys (user picked a NEW server -> force re-handshake);
+     * resetKeys=false keeps them (startup restore -> reuse the existing session).
      */
     public static void applyServerToAccount(OwpengramServer server, int accountNum) {
+        applyServerToAccount(server, accountNum, true);
+    }
+
+    public static void applyServerToAccount(OwpengramServer server, int accountNum, boolean resetKeys) {
         if (server == null) return;
-        ConnectionsManager cm = ConnectionsManager.getInstance(accountNum);
-        for (int dc = 1; dc <= 5; dc++) {
-            cm.applyDatacenterAddress(dc, server.host, server.port);
+        final String key;
+        final long fingerprint;
+        if (server.isTelegram) {
+            key = TELEGRAM_RSA_KEY;
+            fingerprint = TELEGRAM_RSA_FINGERPRINT;
+        } else {
+            key = (server.rsaPublicKey != null && !server.rsaPublicKey.isEmpty())
+                    ? server.rsaPublicKey : OWPENGRAM_RSA_KEY;
+            fingerprint = (server.rsaKeyFingerprint != 0)
+                    ? server.rsaKeyFingerprint : OWPENGRAM_RSA_FINGERPRINT;
         }
+        int mainDc = server.mainDcId > 0
+                ? server.mainDcId
+                : (server.isTelegram ? 2 : 1);
+        ConnectionsManager.native_applyServerConfig(
+                accountNum,
+                server.host,
+                server.port,
+                server.isTelegram,
+                mainDc,
+                key,
+                fingerprint,
+                resetKeys);
     }
 
     /**
      * Called from ApplicationLoader after each account's ConnectionsManager is
-     * initialized, to restore the previously selected server config.
+     * initialized, to restore the previously selected server config. Does NOT
+     * reset auth keys so an already-authorized session keeps working.
      */
     public static void applyStoredServerToAccount(int accountNum) {
         OwpengramServer server = getServerForAccount(accountNum);
         if (server != null) {
-            applyServerToAccount(server, accountNum);
+            applyServerToAccount(server, accountNum, false);
         }
     }
 

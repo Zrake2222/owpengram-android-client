@@ -10,6 +10,7 @@ public class OwpengramServer {
     public int port;
     public String description = "";
     public String rsaPublicKey = "";
+    public long rsaKeyFingerprint = 0;
     public String logoPath = "";
     public boolean isOfficial;
     public boolean isTelegram;

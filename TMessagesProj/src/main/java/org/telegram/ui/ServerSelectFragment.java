@@ -2,13 +2,14 @@ package org.telegram.ui;
 
 import static org.telegram.messenger.AndroidUtilities.dp;
 
+import android.animation.ValueAnimator;
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
-import android.graphics.RectF;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.SystemClock;
 import android.text.TextUtils;
 import android.view.Gravity;
 import android.view.View;
@@ -22,10 +23,12 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import org.telegram.messenger.AndroidUtilities;
-import org.telegram.messenger.R;
+import org.telegram.messenger.UserConfig;
 import org.telegram.owpengram.OwpengramServer;
 import org.telegram.owpengram.OwpengramServers;
+import org.telegram.tgnet.ConnectionsManager;
 import org.telegram.ui.ActionBar.ActionBar;
+import org.telegram.ui.ActionBar.AlertDialog;
 import org.telegram.ui.ActionBar.BaseFragment;
 import org.telegram.ui.ActionBar.Theme;
 import org.telegram.ui.Components.LayoutHelper;
@@ -39,6 +42,14 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+/**
+ * Server selection (mirrors the desktop client's Intro server-select step):
+ *   - list of servers as cards (logo, name, endpoint, live online status, Join button)
+ *   - tap a row to open its details, tap Join to connect
+ *   - Join performs an online check, then shows a blocking "Connecting" dialog,
+ *     applies the server, waits for the MTProto connection, and only then proceeds
+ *     to the login screen. On timeout the user may retry or go back.
+ */
 public class ServerSelectFragment extends BaseFragment {
 
     private static final int TYPE_HEADER  = 0;
@@ -51,33 +62,54 @@ public class ServerSelectFragment extends BaseFragment {
         0xFF00838D, 0xFF1976D2, 0xFF7B1FA2, 0xFFF57F17
     };
 
+    private static final int COLOR_GOOD = 0xFF4CAF82;
+    private static final int COLOR_WARN = 0xFFE8A838;
+    private static final int COLOR_BAD  = 0xFFE53935;
+    private static final int COLOR_IDLE = 0xFF9AA4AE;
+
+    // Ping cache value used while a check is still running.
+    private static final int PING_CHECKING = -2;
+
+    private static final int CONNECT_TIMEOUT_MS = 20000;
+
+    // When >= 0, this is the account slot to log into (add-account flow).
+    // When -1, use currentAccount (first-launch flow).
+    private final int loginAccount;
+
+    public ServerSelectFragment() {
+        this.loginAccount = -1;
+    }
+
+    public ServerSelectFragment(int loginAccount) {
+        this.loginAccount = loginAccount;
+    }
+
     private RecyclerListView listView;
     private ListAdapter adapter;
 
     private final List<OwpengramServer> servers = new ArrayList<>();
-    private String selectedServerId;
 
     private final ExecutorService pingPool = Executors.newCachedThreadPool();
     private final Handler uiHandler = new Handler(Looper.getMainLooper());
     private final HashMap<String, Integer> pingCache = new HashMap<>();
+
+    private Runnable connectPoll;
+    private boolean destroyed;
 
     // --- Lifecycle ---
 
     @Override
     public boolean onFragmentCreate() {
         reloadServers();
-        selectedServerId = OwpengramServers.getServerIdForAccount(currentAccount);
-        if (selectedServerId == null) {
-            selectedServerId = OwpengramServers.ID_OWPENGRAM;
-        }
         pingAll();
         return true;
     }
 
     @Override
     public View createView(Context context) {
-        actionBar.setTitle("Server Selection");
-        actionBar.setSubtitle("Choose a server to continue");
+        actionBar.setBackButtonImage(org.telegram.messenger.R.drawable.ic_ab_back);
+        actionBar.setTitle("Choose a server");
+        actionBar.setSubtitle("Pick where to sign in");
         actionBar.setActionBarMenuOnItemClick(new ActionBar.ActionBarMenuOnItemClick() {
             @Override
             public void onItemClick(int id) {
@@ -85,48 +117,25 @@ public class ServerSelectFragment extends BaseFragment {
             }
         });
 
-        fragmentView = new FrameLayout(context);
-        fragmentView.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundGray));
-        FrameLayout frame = (FrameLayout) fragmentView;
+        FrameLayout frame = new FrameLayout(context);
+        frame.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundGray));
+        fragmentView = frame;
 
         listView = new RecyclerListView(context);
         listView.setLayoutManager(new LinearLayoutManager(context));
         listView.setAdapter(adapter = new ListAdapter(context));
         listView.setVerticalScrollBarEnabled(false);
         listView.setOnItemClickListener((view, position) -> onRowClick(position));
-        listView.setOnItemLongClickListener((view, position) -> {
-            OwpengramServer s = serverAt(position);
-            if (s != null) {
-                presentFragment(new ServerInfoFragment(s, this::reloadServers));
-                return true;
-            }
-            return false;
-        });
         frame.addView(listView, LayoutHelper.createFrame(
-                LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT,
-                Gravity.TOP, 0, 0, 0, 64));
-
-        // Continue button
-        TextView continueBtn = new TextView(context);
-        continueBtn.setText("Continue");
-        continueBtn.setTextSize(16);
-        continueBtn.setTextColor(Theme.getColor(Theme.key_featuredStickers_buttonText));
-        continueBtn.setGravity(Gravity.CENTER);
-        continueBtn.setTypeface(AndroidUtilities.bold());
-        continueBtn.setBackground(Theme.createSimpleSelectorRoundRectDrawable(
-                dp(10),
-                Theme.getColor(Theme.key_featuredStickers_addButton),
-                Theme.getColor(Theme.key_featuredStickers_addButtonPressed)));
-        continueBtn.setOnClickListener(v -> onContinue());
-        frame.addView(continueBtn, LayoutHelper.createFrame(
-                LayoutHelper.MATCH_PARENT, 52,
-                Gravity.BOTTOM | Gravity.LEFT, 16, 0, 16, 12));
+                LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
 
         return fragmentView;
     }
 
     @Override
     public void onFragmentDestroy() {
+        destroyed = true;
+        if (connectPoll != null) uiHandler.removeCallbacks(connectPoll);
         pingPool.shutdownNow();
         super.onFragmentDestroy();
     }
@@ -143,17 +152,24 @@ public class ServerSelectFragment extends BaseFragment {
 
     private void pingAll() {
         for (OwpengramServer s : servers) {
-            final String id   = s.id;
-            final String host = s.host;
-            final int port    = s.port;
-            pingPool.submit(() -> {
-                int ms = pingTcp(host, port);
-                uiHandler.post(() -> {
-                    pingCache.put(id, ms);
-                    updateRow(id);
-                });
-            });
+            pingServer(s);
         }
+    }
+
+    private void pingServer(OwpengramServer s) {
+        final String id   = s.id;
+        final String host = s.host;
+        final int port    = s.port;
+        pingCache.put(id, PING_CHECKING);
+        updateRow(id);
+        pingPool.submit(() -> {
+            int ms = pingTcp(host, port);
+            uiHandler.post(() -> {
+                if (destroyed) return;
+                pingCache.put(id, ms);
+                updateRow(id);
+            });
+        });
     }
 
     private int pingTcp(String host, int port) {
@@ -167,6 +183,7 @@ public class ServerSelectFragment extends BaseFragment {
     }
 
     private void updateRow(String serverId) {
+        if (adapter == null) return;
         List<Object> rows = buildRows();
         for (int i = 0; i < rows.size(); i++) {
             Object o = rows.get(i);
@@ -200,44 +217,107 @@ public class ServerSelectFragment extends BaseFragment {
         return rows;
     }
 
-    private OwpengramServer serverAt(int position) {
-        List<Object> rows = buildRows();
-        if (position < 0 || position >= rows.size()) return null;
-        Object o = rows.get(position);
-        return (o instanceof OwpengramServer) ? (OwpengramServer) o : null;
-    }
-
     private void onRowClick(int position) {
         List<Object> rows = buildRows();
         if (position < 0 || position >= rows.size()) return;
         Object o = rows.get(position);
         if (o instanceof OwpengramServer) {
-            selectedServerId = ((OwpengramServer) o).id;
-            adapter.notifyDataSetChanged();
+            presentFragment(new ServerInfoFragment((OwpengramServer) o, this::reloadServers));
         } else if ("add".equals(o)) {
             presentFragment(new AddServerFragment(null, saved -> {
                 reloadServers();
-                selectedServerId = saved.id;
-                pingPool.submit(() -> {
-                    int ms = pingTcp(saved.host, saved.port);
-                    uiHandler.post(() -> {
-                        pingCache.put(saved.id, ms);
-                        adapter.notifyDataSetChanged();
-                    });
-                });
+                pingServer(saved);
             }));
         }
     }
 
-    private void onContinue() {
-        OwpengramServer server = OwpengramServers.getServerById(selectedServerId);
-        if (server == null) {
-            android.widget.Toast.makeText(getParentActivity(), "Please select a server", android.widget.Toast.LENGTH_SHORT).show();
-            return;
+    // --- Join / connect flow (desktop parity) ---
+
+    private void joinServer(OwpengramServer server) {
+        if (server == null) return;
+        // Online check first, exactly like desktop CheckServerOnline before joining.
+        pingPool.submit(() -> {
+            int ms = pingTcp(server.host, server.port);
+            uiHandler.post(() -> {
+                if (destroyed) return;
+                pingCache.put(server.id, ms);
+                updateRow(server.id);
+                if (ms >= 0) {
+                    proceedJoin(server);
+                } else {
+                    AlertDialog.Builder b = new AlertDialog.Builder(getParentActivity());
+                    b.setTitle("Server unreachable");
+                    b.setMessage("Couldn't reach " + server.name + " (" + server.host + ":" + server.port + "). Try to connect anyway?");
+                    b.setPositiveButton("Connect", (d, w) -> proceedJoin(server));
+                    b.setNegativeButton("Cancel", null);
+                    showDialog(b.create());
+                }
+            });
+        });
+    }
+
+    private void proceedJoin(OwpengramServer server) {
+        if (getParentActivity() == null) return;
+        final int targetAccount = (loginAccount >= 0) ? loginAccount : currentAccount;
+
+        OwpengramServers.setServerForAccount(server.id, targetAccount);
+        OwpengramServers.applyServerToAccount(server, targetAccount); // resetKeys=true
+        ConnectionsManager.getInstance(targetAccount).resumeNetworkMaybe();
+
+        AlertDialog progress = new AlertDialog(getParentActivity(), AlertDialog.ALERT_TYPE_SPINNER);
+        progress.setCanCancel(false);
+        showDialog(progress);
+
+        waitForConnection(targetAccount, server, progress);
+    }
+
+    private void waitForConnection(int account, OwpengramServer server, AlertDialog progress) {
+        final long start = SystemClock.elapsedRealtime();
+        connectPoll = new Runnable() {
+            @Override
+            public void run() {
+                if (destroyed) return;
+                int state = ConnectionsManager.native_getConnectionState(account);
+                if (state == ConnectionsManager.ConnectionStateConnected) {
+                    dismissDialog(progress);
+                    goToLogin(server);
+                } else if (SystemClock.elapsedRealtime() - start > CONNECT_TIMEOUT_MS) {
+                    dismissDialog(progress);
+                    showConnectFailed(server);
+                } else {
+                    uiHandler.postDelayed(this, 200);
+                }
+            }
+        };
+        uiHandler.postDelayed(connectPoll, 200);
+    }
+
+    private void dismissDialog(AlertDialog dialog) {
+        try {
+            if (dialog != null && dialog.isShowing()) dialog.dismiss();
+        } catch (Exception ignore) {
         }
-        OwpengramServers.setServerForAccount(selectedServerId, currentAccount);
-        OwpengramServers.applyServerToAccount(server, currentAccount);
-        presentFragment(new LoginActivity(), true);
+    }
+
+    private void showConnectFailed(OwpengramServer server) {
+        if (getParentActivity() == null) return;
+        AlertDialog.Builder b = new AlertDialog.Builder(getParentActivity());
+        b.setTitle("Connection failed");
+        b.setMessage("Couldn't establish a connection to " + server.name + ". You can continue to the login screen and keep trying, or go back.");
+        b.setPositiveButton("Continue", (d, w) -> goToLogin(server));
+        b.setNegativeButton("Back", null);
+        showDialog(b.create());
+    }
+
+    private void goToLogin(OwpengramServer server) {
+        if (destroyed) return;
+        // Parameterless LoginActivity for first login (target == selected account):
+        // LoginActivity(n) sets newAccount=true and later calls switchToAccount(n),
+        // which early-returns when n == selectedAccount, leaving an empty stack.
+        LoginActivity login = (loginAccount >= 0 && loginAccount != UserConfig.selectedAccount)
+                ? new LoginActivity(loginAccount)
+                : new LoginActivity();
+        presentFragment(login, true);
     }
 
     // --- Adapter ---
@@ -262,9 +342,9 @@ public class ServerSelectFragment extends BaseFragment {
         public RecyclerView.ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int type) {
             switch (type) {
                 case TYPE_SERVER: return new ServerHolder(new ServerCell(context));
-                case TYPE_ADD:    return new AddHolder(buildAddCell(context));
+                case TYPE_ADD:    return new SimpleHolder(buildAddCell(context));
                 case TYPE_HEADER: return new HeaderHolder(buildHeader(context));
-                default:          return new SpacerHolder(buildSpacer(context));
+                default:          return new SimpleHolder(buildSpacer(context));
             }
         }
 
@@ -274,23 +354,24 @@ public class ServerSelectFragment extends BaseFragment {
             Object o = buildRows().get(position);
             if (type == TYPE_SERVER) {
                 OwpengramServer s = (OwpengramServer) o;
-                ((ServerHolder) holder).cell.bind(s, selectedServerId, pingCache.get(s.id));
+                ((ServerHolder) holder).cell.bind(s, pingCache.get(s.id));
             } else if (type == TYPE_HEADER) {
                 String key = (String) o;
-                ((HeaderHolder) holder).tv.setText("official".equals(key) ? "Official Servers" : "Custom Servers");
+                ((HeaderHolder) holder).tv.setText("official".equals(key) ? "Official servers" : "Custom servers");
             }
         }
     }
 
-    // --- Cell builders ---
+    // --- Static cell builders ---
 
     private View buildHeader(Context context) {
         TextView tv = new TextView(context);
-        tv.setTextSize(11);
+        tv.setTextSize(12);
         tv.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlueHeader));
         tv.setAllCaps(true);
-        tv.setLetterSpacing(0.06f);
-        tv.setPadding(dp(16), dp(16), dp(16), dp(6));
+        tv.setLetterSpacing(0.04f);
+        tv.setTypeface(AndroidUtilities.bold());
+        tv.setPadding(dp(20), dp(16), dp(20), dp(8));
         tv.setLayoutParams(new RecyclerView.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         return tv;
@@ -300,25 +381,39 @@ public class ServerSelectFragment extends BaseFragment {
         LinearLayout row = new LinearLayout(context);
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setPadding(dp(16), 0, dp(16), 0);
-        row.setMinimumHeight(dp(52));
-        row.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundWhite));
+        row.setPadding(dp(20), dp(6), dp(20), dp(6));
 
         TextView tv = new TextView(context);
-        tv.setText("+ Add Server");
+        tv.setText("+  Add a server");
         tv.setTextSize(15);
         tv.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlueText));
         tv.setTypeface(AndroidUtilities.bold());
-        row.addView(tv, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, Gravity.CENTER_VERTICAL));
+        tv.setGravity(Gravity.CENTER);
+        tv.setMinimumHeight(dp(52));
+        tv.setPadding(dp(16), 0, dp(16), 0);
+        tv.setBackground(Theme.createSimpleSelectorRoundRectDrawable(
+                dp(14),
+                Theme.getColor(Theme.key_windowBackgroundWhite),
+                Theme.getColor(Theme.key_listSelector)));
+        tv.setOnClickListener(v -> onRowClick(addRowPosition()));
+        row.addView(tv, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 52, Gravity.CENTER_VERTICAL));
 
         row.setLayoutParams(new RecyclerView.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         return row;
     }
 
+    private int addRowPosition() {
+        List<Object> rows = buildRows();
+        for (int i = 0; i < rows.size(); i++) {
+            if ("add".equals(rows.get(i))) return i;
+        }
+        return -1;
+    }
+
     private View buildSpacer(Context context) {
         View v = new View(context);
-        v.setLayoutParams(new RecyclerView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(16)));
+        v.setLayoutParams(new RecyclerView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(24)));
         return v;
     }
 
@@ -328,11 +423,8 @@ public class ServerSelectFragment extends BaseFragment {
         final TextView tv;
         HeaderHolder(View v) { super(v); tv = (TextView) v; }
     }
-    static class AddHolder extends RecyclerView.ViewHolder {
-        AddHolder(View v) { super(v); }
-    }
-    static class SpacerHolder extends RecyclerView.ViewHolder {
-        SpacerHolder(View v) { super(v); }
+    static class SimpleHolder extends RecyclerView.ViewHolder {
+        SimpleHolder(View v) { super(v); }
     }
     class ServerHolder extends RecyclerView.ViewHolder {
         final ServerCell cell;
@@ -343,118 +435,161 @@ public class ServerSelectFragment extends BaseFragment {
 
     private class ServerCell extends FrameLayout {
 
-        private final Paint avatarPaint  = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final Paint letterPaint  = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final Paint checkPaint   = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final Paint checkStroke  = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final Paint avatarPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final Paint letterPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 
         private final TextView nameTv;
-        private final TextView metaTv;
+        private final TextView endpointTv;
+        private final TextView statusTv;
+        private final View statusDot;
+        private final TextView joinBtn;
 
         private String initial = "?";
-        private int latencyColor = 0xFFAAAAAA;
-        private boolean selected;
+        private ValueAnimator pulse;
 
         ServerCell(Context context) {
             super(context);
-            setMinimumHeight(dp(68));
-            setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundWhite));
             setWillNotDraw(false);
+            setPadding(dp(20), dp(5), dp(20), dp(5));
+            setLayoutParams(new RecyclerView.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+            // Inner card so rows read as distinct cards on the gray background.
+            LinearLayout card = new LinearLayout(context);
+            card.setOrientation(LinearLayout.HORIZONTAL);
+            card.setGravity(Gravity.CENTER_VERTICAL);
+            card.setMinimumHeight(dp(72));
+            card.setPadding(dp(14), dp(10), dp(12), dp(10));
+            card.setBackground(Theme.createRoundRectDrawable(dp(14),
+                    Theme.getColor(Theme.key_windowBackgroundWhite)));
 
             letterPaint.setColor(Color.WHITE);
             letterPaint.setFakeBoldText(true);
             letterPaint.setTextAlign(Paint.Align.CENTER);
+            letterPaint.setTextSize(dp(19));
 
-            checkStroke.setStyle(Paint.Style.STROKE);
-            checkStroke.setStrokeWidth(dp(2));
-            checkStroke.setAntiAlias(true);
+            // Avatar spacer (drawn in onDraw): 48dp circle + 14dp gap.
+            View avatarSpace = new View(context);
+            card.addView(avatarSpace, LayoutHelper.createLinear(48 + 14, 48, Gravity.CENTER_VERTICAL));
+
+            LinearLayout textCol = new LinearLayout(context);
+            textCol.setOrientation(LinearLayout.VERTICAL);
 
             nameTv = new TextView(context);
-            nameTv.setTextSize(15);
+            nameTv.setTextSize(15.5f);
             nameTv.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText));
             nameTv.setTypeface(AndroidUtilities.bold());
             nameTv.setSingleLine();
             nameTv.setEllipsize(TextUtils.TruncateAt.END);
-
-            metaTv = new TextView(context);
-            metaTv.setTextSize(13);
-            metaTv.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText));
-            metaTv.setSingleLine();
-
-            LinearLayout textCol = new LinearLayout(context);
-            textCol.setOrientation(LinearLayout.VERTICAL);
-            textCol.setGravity(Gravity.CENTER_VERTICAL);
             textCol.addView(nameTv, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
-            textCol.addView(metaTv, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 2, 0, 0));
 
-            // Avatar placeholder space = 46dp circle + 14dp right margin = left offset 74dp
-            addView(textCol, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT,
-                    Gravity.CENTER_VERTICAL | Gravity.LEFT, 74, 0, 56, 0));
+            endpointTv = new TextView(context);
+            endpointTv.setTextSize(13);
+            endpointTv.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText));
+            endpointTv.setSingleLine();
+            endpointTv.setEllipsize(TextUtils.TruncateAt.MIDDLE);
+            textCol.addView(endpointTv, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 2, 0, 0));
+
+            // Status line: a coloured dot + status text.
+            LinearLayout statusRow = new LinearLayout(context);
+            statusRow.setOrientation(LinearLayout.HORIZONTAL);
+            statusRow.setGravity(Gravity.CENTER_VERTICAL);
+
+            statusDot = new View(context);
+            statusRow.addView(statusDot, LayoutHelper.createLinear(8, 8, Gravity.CENTER_VERTICAL, 0, 0, 7, 0));
+
+            statusTv = new TextView(context);
+            statusTv.setTextSize(12.5f);
+            statusTv.setSingleLine();
+            statusRow.addView(statusTv, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, Gravity.CENTER_VERTICAL));
+
+            textCol.addView(statusRow, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 5, 0, 0));
+
+            card.addView(textCol, LayoutHelper.createLinear(0, LayoutHelper.WRAP_CONTENT, 1f, Gravity.CENTER_VERTICAL));
+
+            joinBtn = new TextView(context);
+            joinBtn.setText("Join");
+            joinBtn.setTextSize(14);
+            joinBtn.setTypeface(AndroidUtilities.bold());
+            joinBtn.setTextColor(Theme.getColor(Theme.key_featuredStickers_buttonText));
+            joinBtn.setGravity(Gravity.CENTER);
+            joinBtn.setPadding(dp(18), 0, dp(18), 0);
+            joinBtn.setBackground(Theme.createSimpleSelectorRoundRectDrawable(
+                    dp(17),
+                    Theme.getColor(Theme.key_featuredStickers_addButton),
+                    Theme.getColor(Theme.key_featuredStickers_addButtonPressed)));
+            card.addView(joinBtn, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, 34, Gravity.CENTER_VERTICAL, 8, 0, 0, 0));
+
+            addView(card, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
         }
 
-        void bind(OwpengramServer server, String selectedId, Integer pingMs) {
+        void bind(OwpengramServer server, Integer pingMs) {
             initial = server.name.isEmpty() ? "?" : String.valueOf(server.name.charAt(0)).toUpperCase();
             int hash = Math.abs(server.name.hashCode());
             avatarPaint.setColor(AVATAR_COLORS[hash % AVATAR_COLORS.length]);
-            letterPaint.setTextSize(dp(18));
-
-            selected = server.id.equals(selectedId);
 
             nameTv.setText(server.name);
+            endpointTv.setText(server.host + ":" + server.port);
 
-            // Meta line: "host . port  - latency"
-            StringBuilder meta = new StringBuilder(server.host).append(":").append(server.port);
-            if (pingMs != null) {
-                if (pingMs < 0) {
-                    latencyColor = 0xFFE53935;
-                    meta.append("   Offline");
-                } else {
-                    latencyColor = pingMs < 100 ? 0xFF4CAF82 : pingMs < 300 ? 0xFFE8A838 : 0xFFE53935;
-                    meta.append("   ").append(pingMs).append(" ms");
-                }
+            stopPulse();
+            int dotColor;
+            if (pingMs == null || pingMs == PING_CHECKING) {
+                dotColor = COLOR_IDLE;
+                statusTv.setText("Checking…");
+                statusTv.setTextColor(COLOR_IDLE);
+                statusDot.setBackground(Theme.createCircleDrawable(dp(8), dotColor));
+                startPulse();
+            } else if (pingMs < 0) {
+                dotColor = COLOR_BAD;
+                statusTv.setText("Offline");
+                statusTv.setTextColor(COLOR_BAD);
+                statusDot.setAlpha(1f);
+                statusDot.setBackground(Theme.createCircleDrawable(dp(8), dotColor));
             } else {
-                latencyColor = 0xFFAAAAAA;
+                dotColor = pingMs < 100 ? COLOR_GOOD : pingMs < 300 ? COLOR_WARN : COLOR_BAD;
+                statusTv.setText("Online · " + pingMs + " ms");
+                statusTv.setTextColor(dotColor);
+                statusDot.setAlpha(1f);
+                statusDot.setBackground(Theme.createCircleDrawable(dp(8), dotColor));
             }
-            metaTv.setText(meta.toString());
 
+            joinBtn.setOnClickListener(v -> joinServer(server));
             invalidate();
         }
 
-        @Override
-        protected void onDraw(Canvas canvas) {
-            int h = getHeight();
+        private void startPulse() {
+            pulse = ValueAnimator.ofFloat(0.35f, 1f);
+            pulse.setDuration(700);
+            pulse.setRepeatMode(ValueAnimator.REVERSE);
+            pulse.setRepeatCount(ValueAnimator.INFINITE);
+            pulse.addUpdateListener(a -> statusDot.setAlpha((float) a.getAnimatedValue()));
+            pulse.start();
+        }
 
-            // Avatar circle
-            float cx = dp(16 + 23); // 16 left padding + 23 radius = center x
-            float cy = h / 2f;
-            float r  = dp(23);
+        private void stopPulse() {
+            if (pulse != null) {
+                pulse.cancel();
+                pulse = null;
+            }
+            statusDot.setAlpha(1f);
+        }
+
+        @Override
+        protected void onDetachedFromWindow() {
+            super.onDetachedFromWindow();
+            stopPulse();
+        }
+
+        @Override
+        protected void dispatchDraw(Canvas canvas) {
+            super.dispatchDraw(canvas);
+            // Drawn after children so it sits on top of the card's white background.
+            // Cell padding-left (20) + card padding-left (14) = 34 to circle edge.
+            float r = dp(24);
+            float cx = dp(20 + 14) + r;
+            float cy = getHeight() / 2f;
             canvas.drawCircle(cx, cy, r, avatarPaint);
             canvas.drawText(initial, cx, cy - (letterPaint.descent() + letterPaint.ascent()) / 2f, letterPaint);
-
-            // Right-side radio / checkmark
-            float rcx = getWidth() - dp(28);
-            float rcy = h / 2f;
-            float rr  = dp(11);
-
-            if (selected) {
-                checkPaint.setColor(Theme.getColor(Theme.key_radioBackgroundChecked));
-                checkStroke.setColor(Theme.getColor(Theme.key_radioBackgroundChecked));
-                canvas.drawCircle(rcx, rcy, rr, checkPaint);
-                // White tick
-                checkPaint.setColor(Color.WHITE);
-                checkPaint.setStyle(Paint.Style.STROKE);
-                checkPaint.setStrokeWidth(dp(2f));
-                checkPaint.setStrokeCap(Paint.Cap.ROUND);
-                checkPaint.setStrokeJoin(Paint.Join.ROUND);
-                canvas.drawLine(rcx - dp(5), rcy, rcx - dp(1.5f), rcy + dp(4), checkPaint);
-                canvas.drawLine(rcx - dp(1.5f), rcy + dp(4), rcx + dp(5), rcy - dp(4), checkPaint);
-                checkPaint.setStyle(Paint.Style.FILL);
-            } else {
-                checkStroke.setColor(Theme.getColor(Theme.key_radioBackground));
-                canvas.drawCircle(rcx, rcy, rr, checkStroke);
-            }
-
-            // Latency color is set in metaTv text above
         }
     }
 }

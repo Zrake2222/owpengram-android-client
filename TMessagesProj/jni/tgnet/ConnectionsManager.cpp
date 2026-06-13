@@ -437,7 +437,7 @@ void ConnectionsManager::loadConfig() {
             RAND_bytes((uint8_t *) &pushSessionId, 8);
         }
         if (currentDatacenterId == 0) {
-            currentDatacenterId = 1;
+            currentDatacenterId = 2;
         }
         saveConfig();
     }
@@ -1813,18 +1813,102 @@ uint8_t ConnectionsManager::getIpStratagy() {
 
 void ConnectionsManager::initDatacenters() {
     Datacenter *datacenter;
-    std::vector<TcpAddress> defaultAddresses;
-    defaultAddresses.push_back(TcpAddress("192.168.100.10", 10443, 0, ""));
-
-    for (int dcId = 1; dcId <= 5; dcId++) {
-        if (datacenters.find(dcId) == datacenters.end()) {
-            datacenter = new Datacenter(instanceNum, dcId);
-            datacenters[dcId] = datacenter;
-        } else {
-            datacenter = datacenters[dcId];
+    if (!testBackend) {
+        struct DcEntry { const char *ip; int port; };
+        static const DcEntry prod[5] = {
+            {"149.154.175.50", 443},
+            {"149.154.167.51", 443},
+            {"149.154.175.100", 443},
+            {"149.154.167.91", 443},
+            {"149.154.171.5",  443}
+        };
+        for (int dcId = 1; dcId <= 5; dcId++) {
+            if (datacenters.find(dcId) == datacenters.end()) {
+                datacenter = new Datacenter(instanceNum, dcId);
+                datacenter->addAddressAndPort(prod[dcId - 1].ip, prod[dcId - 1].port, 0, "");
+                datacenters[dcId] = datacenter;
+            }
         }
-        datacenter->replaceAddresses(defaultAddresses, 0);
+    } else {
+        struct DcEntry { const char *ip; int port; };
+        static const DcEntry test[3] = {
+            {"149.154.175.40",  443},
+            {"149.154.167.40",  443},
+            {"149.154.175.117", 443}
+        };
+        for (int dcId = 1; dcId <= 3; dcId++) {
+            if (datacenters.find(dcId) == datacenters.end()) {
+                datacenter = new Datacenter(instanceNum, dcId);
+                datacenter->addAddressAndPort(test[dcId - 1].ip, test[dcId - 1].port, 0, "");
+                datacenters[dcId] = datacenter;
+            }
+        }
     }
+}
+
+void ConnectionsManager::applyServerConfig(std::string host, uint32_t port, bool isTelegram, uint32_t mainDcId, std::string pemKey, uint64_t fingerprint, bool resetKeys) {
+    scheduleTask([&, host, port, isTelegram, mainDcId, pemKey, fingerprint, resetKeys] {
+        // 1. Per-instance RSA key. Cleared thread_local cache so the next handshake
+        //    reloads it (Handshake::serverPublicKeys is shared across accounts).
+        customPublicKey = pemKey;
+        customPublicKeyFingerprint = fingerprint;
+        Handshake::cleanupServerKeys();
+
+        // 2. Rebuild the DC 1..5 address table for the chosen server.
+        struct DcEntry { const char *ip; int port; };
+        static const DcEntry prod[5] = {
+            {"149.154.175.50", 443},
+            {"149.154.167.51", 443},
+            {"149.154.175.100", 443},
+            {"149.154.167.91", 443},
+            {"149.154.171.5",  443}
+        };
+        for (int dcId = 1; dcId <= 5; dcId++) {
+            Datacenter *dc = getDatacenterWithId(dcId);
+            if (dc == nullptr) {
+                dc = new Datacenter(instanceNum, dcId);
+                datacenters[dcId] = dc;
+            }
+            std::vector<TcpAddress> addrs;
+            if (isTelegram) {
+                // Real Telegram DCs; help.getConfig will add alternates.
+                addrs.emplace_back(prod[dcId - 1].ip, prod[dcId - 1].port, 0, "");
+            } else {
+                // Single-server backend: every dc_id resolves to the one machine,
+                // so file/media references to dc 2..5 still connect.
+                addrs.emplace_back(host, port, 0, "");
+            }
+            dc->suspendConnections(true);
+            if (resetKeys) {
+                dc->clearAuthKey(HandshakeTypeAll);
+            }
+            dc->replaceAddresses(addrs, 0);
+            dc->resetAddressAndPortNum();
+            dc->recreateSessions(HandshakeTypeAll);
+        }
+
+        // 3. Home DC + lock state.
+        if (isTelegram) {
+            currentDatacenterId = (mainDcId > 0) ? mainDcId : 2;
+            serverOptionsLocked = false;
+        } else {
+            currentDatacenterId = (mainDcId > 0) ? mainDcId : 1;
+            serverOptionsLocked = true;
+        }
+        movingToDatacenterId = DEFAULT_DATACENTER_ID;
+        saveConfig();
+
+        // 4. Reconnect on the new current DC.
+        Datacenter *cur = getDatacenterWithId(currentDatacenterId);
+        if (cur != nullptr && !cur->hasAuthKey(ConnectionTypeGeneric, 0) && !cur->isHandshakingAny()) {
+            cur->clearServerSalts(false);
+            cur->clearServerSalts(true);
+            cur->beginHandshake(HandshakeTypeAll, true);
+        }
+        scheduleTask([&] {
+            processRequestQueue(0, 0);
+        });
+    });
 }
 
 void ConnectionsManager::attachConnection(ConnectionSocket *connection) {
@@ -3379,7 +3463,7 @@ void ConnectionsManager::updateDcSettings(uint32_t dcNum, bool workaround, bool 
                 info->addAddressAndPort(dcOption);
             }
 
-            if (!map.empty()) {
+            if (!map.empty() && !serverOptionsLocked) {
                 for (auto & iter : map) {
                     Datacenter *datacenter = getDatacenterWithId(iter.first);
                     DatacenterInfo *info = iter.second.get();

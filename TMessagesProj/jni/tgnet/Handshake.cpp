@@ -362,8 +362,17 @@ void Handshake::processHandshakeResponse_resPQ(TLObject *message, int64_t messag
                 }
             }
         } else {
-            if (serverPublicKeys.empty()) {
-                if (ConnectionsManager::getInstance(currentDatacenter->instanceNum).testBackend) {
+            {
+                // Always reload from the instance-specific key.
+                // thread_local serverPublicKeys is shared across all accounts on the network thread,
+                // so caching it causes account A's key to be used for account B's handshake.
+                serverPublicKeys.clear();
+                serverPublicKeysFingerprints.clear();
+                auto &cm = ConnectionsManager::getInstance(currentDatacenter->instanceNum);
+                if (!cm.customPublicKey.empty() && cm.customPublicKeyFingerprint != 0) {
+                    serverPublicKeys.push_back(cm.customPublicKey);
+                    serverPublicKeysFingerprints.push_back(cm.customPublicKeyFingerprint);
+                } else if (cm.testBackend) {
                     serverPublicKeys.emplace_back("-----BEGIN RSA PUBLIC KEY-----\n"
                                                   "MIIBCgKCAQEAyMEdY1aR+sCR3ZSJrtztKTKqigvO/vBfqACJLZtS7QMgCGXJ6XIR\n"
                                                   "yy7mx66W0/sOFa7/1mAZtEoIokDP3ShoqF4fVNb6XeqgQfaUHd8wJpDWHcR2OFwv\n"
