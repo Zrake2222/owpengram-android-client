@@ -459,7 +459,9 @@ public class ServerSelectFragment extends BaseFragment {
             card.setOrientation(LinearLayout.HORIZONTAL);
             card.setGravity(Gravity.CENTER_VERTICAL);
             card.setMinimumHeight(dp(72));
-            card.setPadding(dp(14), dp(10), dp(12), dp(10));
+            // Right padding reserves room for the Join button, which is a DIRECT
+            // child of this cell (see note at addView below).
+            card.setPadding(dp(14), dp(10), dp(86), dp(10));
             card.setBackground(Theme.createRoundRectDrawable(dp(14),
                     Theme.getColor(Theme.key_windowBackgroundWhite)));
 
@@ -507,6 +509,13 @@ public class ServerSelectFragment extends BaseFragment {
 
             card.addView(textCol, LayoutHelper.createLinear(0, LayoutHelper.WRAP_CONTENT, 1f, Gravity.CENTER_VERTICAL));
 
+            addView(card, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+
+            // IMPORTANT: the Join button must be a DIRECT child of the cell.
+            // RecyclerListView only checks the row's immediate children for
+            // clickability (one level deep); a button nested inside the card would
+            // be missed and the tap would fall through to the row's item-click
+            // (opening the info screen) instead of joining.
             joinBtn = new TextView(context);
             joinBtn.setText("Join");
             joinBtn.setTextSize(14);
@@ -518,9 +527,9 @@ public class ServerSelectFragment extends BaseFragment {
                     dp(17),
                     Theme.getColor(Theme.key_featuredStickers_addButton),
                     Theme.getColor(Theme.key_featuredStickers_addButtonPressed)));
-            card.addView(joinBtn, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, 34, Gravity.CENTER_VERTICAL, 8, 0, 0, 0));
-
-            addView(card, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+            // marginEnd = cell padding (20) + inset inside the card (12).
+            addView(joinBtn, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, 34,
+                    Gravity.CENTER_VERTICAL | Gravity.END, 0, 0, 20 + 12, 0));
         }
 
         void bind(OwpengramServer server, Integer pingMs) {

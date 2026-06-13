@@ -37,8 +37,13 @@ public class AddServerFragment extends BaseFragment {
     private EditTextBoldCursor portField;
     private EditTextBoldCursor descField;
     private EditTextBoldCursor rsaField;
+    private EditTextBoldCursor mainDcField;
+    private View mainDcRow;
     private View multiDcToggle;
     private boolean multiDcEnabled = false;
+
+    private static final int DEFAULT_PORT = 10443;
+    private static final int DEFAULT_SINGLE_MAIN_DC = 2;
 
     public AddServerFragment(OwpengramServer existing, OnSavedListener listener) {
         this.editingServer    = existing;
@@ -84,7 +89,7 @@ public class AddServerFragment extends BaseFragment {
         hostField = buildField(context, "Host / IP address", InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI, EditorInfo.IME_ACTION_NEXT);
         addFieldToCard(section2, hostField, true);
         portField = buildField(context, "Port", InputType.TYPE_CLASS_NUMBER, EditorInfo.IME_ACTION_NEXT);
-        portField.setText("443");
+        portField.setText(String.valueOf(DEFAULT_PORT));
         addFieldToCard(section2, portField, false);
         content.addView(section2);
 
@@ -94,12 +99,25 @@ public class AddServerFragment extends BaseFragment {
         multiDcToggle = buildToggleRow(context, "Multi-DC mode",
                 "Only for Telegram-compatible servers", false);
         section3.addView(multiDcToggle);
+
+        // Main DC selector — single-server only. Hidden when Multi-DC is on
+        // (Telegram-compatible servers always use DC 2 as home).
+        LinearLayout mainDcContainer = new LinearLayout(context);
+        mainDcContainer.setOrientation(LinearLayout.VERTICAL);
+        addDividerToCard(mainDcContainer, context);
+        mainDcField = buildField(context, "Main data center (1-5)", InputType.TYPE_CLASS_NUMBER, EditorInfo.IME_ACTION_NEXT);
+        mainDcField.setText(String.valueOf(DEFAULT_SINGLE_MAIN_DC));
+        addFieldToCard(mainDcContainer, mainDcField, true);
+        section3.addView(mainDcContainer);
+        mainDcRow = mainDcContainer;
+
         addDividerToCard(section3, context);
         rsaField = buildField(context, "RSA Public Key (PEM)", InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_LONG_MESSAGE, EditorInfo.IME_ACTION_DONE);
         rsaField.setMinLines(3);
         rsaField.setGravity(Gravity.TOP);
-        addFieldToCard(section3, rsaField, false);
+        addFieldToCard(section3, rsaField, true);
         content.addView(section3);
+        updateMainDcVisibility();
 
         // Save button
         content.addView(buildSaveButton(context));
@@ -111,8 +129,11 @@ public class AddServerFragment extends BaseFragment {
             hostField.setText(editingServer.host);
             portField.setText(String.valueOf(editingServer.port));
             rsaField.setText(editingServer.rsaPublicKey);
+            mainDcField.setText(String.valueOf(editingServer.mainDcId > 0
+                    ? editingServer.mainDcId : DEFAULT_SINGLE_MAIN_DC));
             multiDcEnabled = editingServer.multiDc;
             updateToggleState();
+            updateMainDcVisibility();
         }
 
         fragmentView = new FrameLayout(context);
@@ -151,13 +172,25 @@ public class AddServerFragment extends BaseFragment {
         } else {
             server = new OwpengramServer();
         }
+        int mainDc;
+        if (multiDcEnabled) {
+            mainDc = 2; // Telegram-compatible servers always home on DC 2
+        } else {
+            try {
+                mainDc = Integer.parseInt(mainDcField.getText().toString().trim());
+            } catch (NumberFormatException e) {
+                mainDc = DEFAULT_SINGLE_MAIN_DC;
+            }
+            if (mainDc < 1 || mainDc > 5) mainDc = DEFAULT_SINGLE_MAIN_DC;
+        }
+
         server.name        = name;
         server.host        = host;
         server.port        = port;
         server.description = descField.getText().toString().trim();
         server.rsaPublicKey = rsaField.getText().toString().trim();
         server.multiDc     = multiDcEnabled;
-        server.mainDcId    = multiDcEnabled ? 2 : 1;
+        server.mainDcId    = mainDc;
 
         if (editingServer != null) {
             OwpengramServers.updateCustomServer(server);
@@ -261,8 +294,15 @@ public class AddServerFragment extends BaseFragment {
         row.setOnClickListener(v -> {
             multiDcEnabled = !multiDcEnabled;
             updateToggleText(toggleTv, multiDcEnabled);
+            updateMainDcVisibility();
         });
         return row;
+    }
+
+    private void updateMainDcVisibility() {
+        if (mainDcRow != null) {
+            mainDcRow.setVisibility(multiDcEnabled ? View.GONE : View.VISIBLE);
+        }
     }
 
     private void updateToggleText(TextView tv, boolean on) {
