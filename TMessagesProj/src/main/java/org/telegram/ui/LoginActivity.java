@@ -142,6 +142,7 @@ import org.telegram.messenger.SRPHelper;
 import org.telegram.messenger.SharedConfig;
 import org.telegram.messenger.UserConfig;
 import org.telegram.messenger.Utilities;
+import org.telegram.owpengram.OwpengramServers;
 import org.telegram.tgnet.ConnectionsManager;
 import org.telegram.tgnet.RequestDelegate;
 import org.telegram.tgnet.SerializedData;
@@ -3050,7 +3051,7 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
                             continue;
                         }
                         String userPhone = userConfig.getCurrentUser().phone;
-                        if (PhoneNumberUtils.compare(phone, userPhone) && ConnectionsManager.getInstance(a).isTestBackend() == testBackend) {
+                        if (PhoneNumberUtils.compare(phone, userPhone) && ConnectionsManager.getInstance(a).isTestBackend() == testBackend && OwpengramServers.sameAccountServer(a, currentAccount)) {
                             final int num = a;
                             AlertDialog.Builder builder = new AlertDialog.Builder(getParentActivity());
                             builder.setTitle(getString(R.string.AppName));
@@ -3428,7 +3429,7 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
                         if (!userConfig.isClientActivated()) {
                             continue;
                         }
-                        if (userConfig.getClientUserId() == userId && ConnectionsManager.getInstance(a).isTestBackend() == testBackend) {
+                        if (userConfig.getClientUserId() == userId && ConnectionsManager.getInstance(a).isTestBackend() == testBackend && OwpengramServers.sameAccountServer(a, currentAccount)) {
                             if (UserConfig.selectedAccount != a) {
                                 ((LaunchActivity) getParentActivity()).switchToAccount(a, true);
                             }

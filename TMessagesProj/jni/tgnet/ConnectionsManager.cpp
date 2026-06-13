@@ -1850,8 +1850,12 @@ void ConnectionsManager::applyServerConfig(std::string host, uint32_t port, bool
     scheduleTask([&, host, port, isTelegram, mainDcId, pemKey, fingerprint, resetKeys] {
         // 1. Per-instance RSA key. Cleared thread_local cache so the next handshake
         //    reloads it (Handshake::serverPublicKeys is shared across accounts).
+        //    fingerprint == 0 means the caller doesn't know it (custom server with
+        //    its own key) — compute it from the PEM, like the desktop client does.
         customPublicKey = pemKey;
-        customPublicKeyFingerprint = fingerprint;
+        customPublicKeyFingerprint = (fingerprint != 0)
+                ? fingerprint
+                : Handshake::calculatePublicKeyFingerprint(pemKey);
         Handshake::cleanupServerKeys();
 
         // 2. Rebuild the DC 1..5 address table for the chosen server.

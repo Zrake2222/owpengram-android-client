@@ -201,6 +201,29 @@ public class OwpengramServers {
         return getServerIdForAccount(accountNum) != null;
     }
 
+    /**
+     * True when two account slots target the same server. Used so the duplicate
+     * login check (same phone / same user id) only triggers within one server —
+     * the same phone number on a different server is a different account.
+     * Matches by server id, or by resolved endpoint (host:port + Telegram flag)
+     * so two profiles pointing at the same machine are still treated as one.
+     */
+    public static boolean sameAccountServer(int accountA, int accountB) {
+        String idA = getServerIdForAccount(accountA);
+        String idB = getServerIdForAccount(accountB);
+        if (java.util.Objects.equals(idA, idB)) {
+            return true;
+        }
+        OwpengramServer sa = getServerById(idA);
+        OwpengramServer sb = getServerById(idB);
+        if (sa == null || sb == null) {
+            return false;
+        }
+        return sa.isTelegram == sb.isTelegram
+                && sa.port == sb.port
+                && sa.host != null && sa.host.equals(sb.host);
+    }
+
     // --- DC application ---
 
     /**
@@ -223,11 +246,15 @@ public class OwpengramServers {
         if (server.isTelegram) {
             key = TELEGRAM_RSA_KEY;
             fingerprint = TELEGRAM_RSA_FINGERPRINT;
+        } else if (server.rsaPublicKey != null && !server.rsaPublicKey.isEmpty()) {
+            // Custom server with its own RSA key. Pass fingerprint 0 so the native
+            // layer derives it from the PEM (we can't compute it in Java).
+            key = server.rsaPublicKey;
+            fingerprint = (server.rsaKeyFingerprint != 0) ? server.rsaKeyFingerprint : 0;
         } else {
-            key = (server.rsaPublicKey != null && !server.rsaPublicKey.isEmpty())
-                    ? server.rsaPublicKey : OWPENGRAM_RSA_KEY;
-            fingerprint = (server.rsaKeyFingerprint != 0)
-                    ? server.rsaKeyFingerprint : OWPENGRAM_RSA_FINGERPRINT;
+            // No key provided -> shared default owpengram key (fingerprint known).
+            key = OWPENGRAM_RSA_KEY;
+            fingerprint = OWPENGRAM_RSA_FINGERPRINT;
         }
         int mainDc = server.mainDcId > 0
                 ? server.mainDcId
