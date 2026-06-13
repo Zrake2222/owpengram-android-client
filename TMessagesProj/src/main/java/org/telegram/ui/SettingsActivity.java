@@ -869,8 +869,8 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
                     break;
             }
             String versionName = pInfo.versionName;
-            if (!versionName.endsWith("_O1")) {
-                versionName += "_O1";
+            if (!versionName.endsWith("_O2")) {
+                versionName += "_O2";
             }
             return formatString(R.string.TelegramVersion, String.format(Locale.US, "v%s (%d)\n%s", versionName, code, abi));
         } catch (Exception e) {

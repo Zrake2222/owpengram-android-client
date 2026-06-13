@@ -81,6 +81,7 @@ import org.telegram.ui.Components.RLottieImageView;
 import org.telegram.ui.Components.ScaleStateListAnimator;
 import org.telegram.ui.Components.SimpleThemeDescription;
 import org.telegram.ui.Components.voip.CellFlickerDrawable;
+import org.telegram.owpengram.OwpengramServers;
 
 import java.util.ArrayList;
 
@@ -383,9 +384,7 @@ public class IntroActivity extends BaseFragment implements NotificationCenter.No
                 return;
             }
             startPressed = true;
-
-            presentFragment(new LoginActivity().setIntroView(frameContainerView, startMessagingButton), true);
-            destroyed = true;
+            presentFragment(new ServerSelectFragment());
         });
 
         bottomPages = new BottomPagesView(context, viewPager, 6);
@@ -442,6 +441,7 @@ public class IntroActivity extends BaseFragment implements NotificationCenter.No
     @Override
     public void onResume() {
         super.onResume();
+        startPressed = false;
         if (justCreated) {
             if (LocaleController.isRTL) {
                 viewPager.setCurrentItem(6);

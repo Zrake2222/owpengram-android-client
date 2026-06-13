@@ -37,6 +37,7 @@ import com.google.android.gms.common.GooglePlayServicesUtil;
 
 import org.json.JSONObject;
 import org.telegram.messenger.voip.VideoCapturerDevice;
+import org.telegram.owpengram.OwpengramServers;
 import org.telegram.tgnet.ConnectionsManager;
 import org.telegram.tgnet.TLRPC;
 import org.telegram.ui.ActionBar.BaseFragment;
@@ -253,6 +254,7 @@ public class ApplicationLoader extends Application {
             } else {
                 ConnectionsManager.getInstance(a);
             }
+            OwpengramServers.applyStoredServerToAccount(a);
             TLRPC.User user = UserConfig.getInstance(a).getCurrentUser();
             if (user != null) {
                 MessagesController.getInstance(a).putUser(user, true);

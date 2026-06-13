@@ -119,6 +119,8 @@ import org.telegram.messenger.MessageObject;
 import org.telegram.messenger.MessagesController;
 import org.telegram.messenger.MessagesStorage;
 import org.telegram.messenger.NotificationCenter;
+import org.telegram.owpengram.OwpengramServer;
+import org.telegram.owpengram.OwpengramServers;
 import org.telegram.messenger.NotificationsController;
 import org.telegram.messenger.OpenAttachedMenuBotReceiver;
 import org.telegram.messenger.PushListenerController;
@@ -1052,9 +1054,17 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
     }
 
     private BaseFragment getClientNotActivatedFragment() {
+        // Resuming a mid-login flow - server already chosen, continue where we left off
         if (LoginActivity.loadCurrentState(false, currentAccount).getInt("currentViewNum", 0) != 0) {
             return new LoginActivity();
         }
+        // Adding a second account - skip intro, show server picker directly
+        for (int a = 0; a < UserConfig.MAX_ACCOUNT_COUNT; a++) {
+            if (a != currentAccount && UserConfig.getInstance(a).isClientActivated()) {
+                return new ServerSelectFragment();
+            }
+        }
+        // Fresh install - show intro; server picker is triggered from "Start Messaging"
         return new IntroActivity();
     }
 
@@ -2223,6 +2233,17 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
                                     break;
                                 }
                                 case "tg": {
+                                    // tg:// deep links are only valid on Telegram-official accounts
+                                    {
+                                        OwpengramServer currentServer = OwpengramServers.getServerForAccount(currentAccount);
+                                        if (currentServer == null || !currentServer.isTelegram) {
+                                            int tgAccount = OwpengramServers.firstTelegramAccount();
+                                            if (tgAccount < 0) {
+                                                break; // no Telegram account - ignore
+                                            }
+                                            switchToAccount(tgAccount, true);
+                                        }
+                                    }
                                     String url = data.toString();
                                     if (url.startsWith("tg:premium_offer") || url.startsWith("tg://premium_offer")) {
                                         String finalUrl = url;
