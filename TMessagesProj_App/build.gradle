@@ -195,4 +195,6 @@ android {
     }
 }
 
-apply plugin: 'com.google.gms.google-services'
+// Прибрано: без хмарних залежностей. Push працює через keep-alive (self-hosted),
+// білд не потребує Firebase-проєкту / google-services.json.
+// apply plugin: 'com.google.gms.google-services'
