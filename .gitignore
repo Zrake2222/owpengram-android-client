@@ -16,3 +16,7 @@ TMessagesProj_App/afat/
 TMessagesProj_AppHockeyApp/afat/
 TMessagesProj_AppStandalone/afat/
 TMessagesProj_AppHuawei/afat/
+
+# signing key (never commit the private keystore / its password)
+TMessagesProj/config/release.keystore
+TMessagesProj/config/.keystore_password.txt

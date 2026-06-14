@@ -732,7 +732,7 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
         items.add(SettingCell.Factory.of(18, 0xFF1BA4ED, 0xFF1488E1, R.drawable.settings_faq, getString(R.string.TelegramFAQ)));
         items.add(SettingCell.Factory.of(23, 0xFFC46EF4, 0xFF9F55DF, R.drawable.settings_features, getString(R.string.TelegramFeatures)));
         items.add(SettingCell.Factory.of(19, 0xFF55CA47, 0xFF27B434, R.drawable.settings_policy, getString(R.string.PrivacyPolicy)));
-        items.add(SettingCell.Factory.of(30, 0xFF6E7B86, 0xFF55606A, R.drawable.settings_features, "OwpenGram"));
+        items.add(SettingCell.Factory.of(30, 0xFF6E7B86, 0xFF55606A, R.drawable.github_logo, "OwpenGram"));
 
         if (BuildVars.LOGS_ENABLED || BuildVars.DEBUG_PRIVATE_VERSION) {
             items.add(UItem.asShadow(null));

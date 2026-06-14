@@ -10328,20 +10328,24 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                 devicesRow = rowCount++;
                 languageRow = rowCount++;
                 devicesSectionRow = rowCount++;
-                if (!getMessagesController().premiumFeaturesBlocked()) {
+                // Only show the Premium section (Premium/Stars/TON/Business/Gifting)
+                // for servers that actually implement these features (Telegram,
+                // Teamgram). OwpenGram and custom single-servers don't, so hide it.
+                boolean serverPremium = org.telegram.owpengram.OwpengramServers.serverSupportsPremium(currentAccount);
+                if (serverPremium && !getMessagesController().premiumFeaturesBlocked()) {
                     premiumRow = rowCount++;
                 }
-                if (getMessagesController().starsPurchaseAvailable()) {
+                if (serverPremium && getMessagesController().starsPurchaseAvailable()) {
                     starsRow = rowCount++;
                 }
                 StarsController.getInstance(currentAccount, true).getBalance();
-                if (ApplicationLoader.isBetaBuild() || ApplicationLoader.isStandaloneBuild() || ApplicationLoader.isHuaweiStoreBuild() || (StarsController.getInstance(currentAccount, true).balanceAvailable() && (StarsController.getInstance(currentAccount, true).hasTransactions() || StarsController.getInstance(currentAccount, true).getBalance().positive()))) {
+                if (serverPremium && (ApplicationLoader.isBetaBuild() || ApplicationLoader.isStandaloneBuild() || ApplicationLoader.isHuaweiStoreBuild() || (StarsController.getInstance(currentAccount, true).balanceAvailable() && (StarsController.getInstance(currentAccount, true).hasTransactions() || StarsController.getInstance(currentAccount, true).getBalance().positive())))) {
                     tonRow = rowCount++;
                 }
-                if (!getMessagesController().premiumFeaturesBlocked()) {
+                if (serverPremium && !getMessagesController().premiumFeaturesBlocked()) {
                     businessRow = rowCount++;
                 }
-                if (!getMessagesController().premiumPurchaseBlocked()) {
+                if (serverPremium && !getMessagesController().premiumPurchaseBlocked()) {
                     premiumGiftingRow = rowCount++;
                 }
                 if (premiumRow >= 0 || starsRow >= 0 || tonRow >= 0 || businessRow >= 0 || premiumGiftingRow >= 0) {
@@ -13434,7 +13438,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                     } else if (position == policyRow) {
                         textCell.setTextAndIcon(LocaleController.getString(R.string.PrivacyPolicy), R.drawable.msg2_policy, true);
                     } else if (position == owpengramRow) {
-                        textCell.setTextAndIcon("OwpenGram", R.drawable.msg2_discussion, false);
+                        textCell.setTextAndIcon("OwpenGram", R.drawable.github_logo, false);
                     } else if (position == sendLogsRow) {
                         textCell.setText(LocaleController.getString(R.string.DebugSendLogs), true);
                     } else if (position == sendLastLogsRow) {

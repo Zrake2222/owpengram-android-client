@@ -205,6 +205,21 @@ public class OwpengramServers {
     }
 
     /**
+     * Whether the account's current server exposes Telegram Premium / Stars /
+     * Business features. Only the real Telegram and Teamgram backends implement
+     * them server-side; OwpenGram and custom single-servers do not, so the whole
+     * Premium settings section is hidden there. Mirrors the desktop client, which
+     * gates this via the server's appConfig (premiumPossible).
+     */
+    public static boolean serverSupportsPremium(int accountNum) {
+        OwpengramServer s = getServerForAccount(accountNum);
+        if (s == null) {
+            return false;
+        }
+        return s.isTelegram || ID_TEAMGRAM.equals(s.id);
+    }
+
+    /**
      * True when two account slots target the same server. Used so the duplicate
      * login check (same phone / same user id) only triggers within one server —
      * the same phone number on a different server is a different account.
