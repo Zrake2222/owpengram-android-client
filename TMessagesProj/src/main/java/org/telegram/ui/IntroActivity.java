@@ -45,6 +45,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.widget.FrameLayout;
+import android.widget.ImageView;
 import android.widget.ScrollView;
 import android.widget.TextView;
 
@@ -113,7 +114,7 @@ public class IntroActivity extends BaseFragment implements NotificationCenter.No
     private int lastPage = 0;
     private boolean justCreated = false;
     private boolean startPressed = false;
-    private Drawable logoDrawable;
+    private ImageView introLogoView;
     private CharSequence[] titles;
     private String[] messages;
     private int currentViewPagerPage;
@@ -154,11 +155,9 @@ public class IntroActivity extends BaseFragment implements NotificationCenter.No
 
     @Override
     public View createView(Context context) {
-        logoDrawable = context.getResources().getDrawable(R.drawable.server_owpengram).mutate();
-        logoDrawable.setBounds(0, 0, dp(48), dp(48));
-        SpannableStringBuilder ssb = new SpannableStringBuilder(LocaleController.getString(R.string.Page1Title));
-        ssb.setSpan(new ImageSpan(logoDrawable), 0, ssb.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-        titles[0] = ssb;
+        // Page 1 title is plain text again; the OwpenGram logo is shown as the big
+        // intro image (introLogoView) instead of the Telegram GL animation.
+        titles[0] = LocaleController.getString(R.string.Page1Title);
 
 
         actionBar.setAddToContainer(false);
@@ -250,6 +249,14 @@ public class IntroActivity extends BaseFragment implements NotificationCenter.No
 
         TextureView textureView = new TextureView(context);
         frameLayout2.addView(textureView, LayoutHelper.createFrame(ICON_WIDTH_DP, ICON_HEIGHT_DP, Gravity.CENTER));
+
+        // Big OwpenGram logo shown on the first intro page (page 0). The Telegram GL
+        // logo is made transparent (see EGLThread.initGL), so this is the only logo
+        // visible there. It fades out as the user swipes to the feature pages.
+        introLogoView = new ImageView(context);
+        introLogoView.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        introLogoView.setImageResource(R.drawable.server_owpengram);
+        frameLayout2.addView(introLogoView, LayoutHelper.createFrame(ICON_HEIGHT_DP, ICON_HEIGHT_DP, Gravity.CENTER));
         textureView.setSurfaceTextureListener(new TextureView.SurfaceTextureListener() {
             @Override
             public void onSurfaceTextureAvailable(@NonNull SurfaceTexture surface, int width, int height) {
@@ -309,6 +316,11 @@ public class IntroActivity extends BaseFragment implements NotificationCenter.No
                 }
                 float offset = (position * width + positionOffsetPixels - currentViewPagerPage * width) / width;
                 Intro.setScrollOffset(offset);
+
+                if (introLogoView != null) {
+                    // Visible only on the first page; fades out while swiping away.
+                    introLogoView.setAlpha(position == 0 ? Math.max(0f, 1f - positionOffset) : 0f);
+                }
             }
 
             @Override
@@ -804,16 +816,10 @@ public class IntroActivity extends BaseFragment implements NotificationCenter.No
             loadTexture(R.drawable.intro_powerful_star, 18);
             loadTexture(R.drawable.intro_private_door, 19);
             loadTexture(R.drawable.intro_private_screw, 20);
-            loadTexture(R.drawable.intro_tg_plane, 21);
-            loadTexture(v -> {
-                Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
-                paint.setColor(ThemeColors.TELEGRAM_COLOR); // It's logo color, it should not be colored by the theme
-                int size = dp(ICON_HEIGHT_DP);
-                Bitmap bm = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);
-                Canvas c = new Canvas(bm);
-                c.drawCircle(size / 2f, size / 2f, size / 2f, paint);
-                return bm;
-            }, 22);
+            // Telegram logo (plane + sphere) is rendered transparent: the big intro
+            // logo on page 0 is the OwpenGram image (introLogoView) overlaid instead.
+            loadTexture(v -> Bitmap.createBitmap(2, 2, Bitmap.Config.ARGB_8888), 21);
+            loadTexture(v -> Bitmap.createBitmap(2, 2, Bitmap.Config.ARGB_8888), 22);
             loadTexture(telegramMaskProvider, 23);
 
             updateTelegramTextures();
@@ -976,8 +982,6 @@ public class IntroActivity extends BaseFragment implements NotificationCenter.No
 
     private void updateColors(boolean fromTheme) {
         startMessagingButtonBackground.setColors(new int[]{getThemedColor(Theme.key_featuredStickers_addButton), getThemedColor(Theme.key_featuredStickers_addButton2)});
-        // OwpenGram logo is a full-color icon (not a monochrome wordmark), so don't tint it.
-        logoDrawable.setColorFilter(null);
         fragmentView.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundWhite));
         switchLanguageTextView.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlueText4));
         startMessagingButton.setTextColor(Theme.getColor(Theme.key_featuredStickers_buttonText));
