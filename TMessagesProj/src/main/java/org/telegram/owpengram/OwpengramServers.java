@@ -347,15 +347,21 @@ public class OwpengramServers {
         return n;
     }
 
+    // Telegram-official account caps, mirroring the desktop client:
+    //   kMaxAccounts = 3 (free), kPremiumMaxAccounts = 6 (with premium).
+    private static final int TELEGRAM_FREE_LIMIT = 3;
+    private static final int TELEGRAM_PREMIUM_LIMIT = 6;
+
     /**
-     * Telegram-account cap (premium raises it). Only Telegram accounts count
-     * toward this; custom/self-hosted accounts are limited solely by the hard
+     * Telegram-account cap (premium raises it from 3 to 6). Only Telegram accounts
+     * count toward this; custom/self-hosted accounts are limited solely by the hard
      * total slot count (MAX_ACCOUNT_COUNT).
      */
     public static int telegramAccountLimit() {
-        return UserConfig.hasPremiumOnAccounts()
-                ? UserConfig.MAX_ACCOUNT_COUNT
-                : UserConfig.MAX_ACCOUNT_DEFAULT_COUNT;
+        int limit = UserConfig.hasPremiumOnAccounts()
+                ? TELEGRAM_PREMIUM_LIMIT
+                : TELEGRAM_FREE_LIMIT;
+        return Math.min(limit, UserConfig.MAX_ACCOUNT_COUNT);
     }
 
     /** True if another Telegram account can still be added under the premium cap. */
