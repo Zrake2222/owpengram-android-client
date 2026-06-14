@@ -444,12 +444,34 @@ public class ServerSelectFragment extends BaseFragment {
         ServerHolder(ServerCell c) { super(c); cell = c; }
     }
 
+    // Built-in server logos (pulled from the desktop client). Decoded once and
+    // cached. Custom servers fall back to the generated colored initial avatar.
+    private static final java.util.HashMap<String, android.graphics.Bitmap> SERVER_LOGO_CACHE = new java.util.HashMap<>();
+    private static android.graphics.Bitmap serverLogo(Context ctx, String id) {
+        int res = 0;
+        if (OwpengramServers.ID_OWPENGRAM.equals(id)) res = org.telegram.messenger.R.drawable.server_owpengram;
+        else if (OwpengramServers.ID_TELEGRAM.equals(id)) res = org.telegram.messenger.R.drawable.server_telegram;
+        else if (OwpengramServers.ID_TEAMGRAM.equals(id)) res = org.telegram.messenger.R.drawable.server_teamgram;
+        if (res == 0 || ctx == null) return null;
+        android.graphics.Bitmap b = SERVER_LOGO_CACHE.get(id);
+        if (b == null) {
+            try {
+                b = android.graphics.BitmapFactory.decodeResource(ctx.getResources(), res);
+            } catch (Throwable ignore) {}
+            if (b != null) SERVER_LOGO_CACHE.put(id, b);
+        }
+        return b;
+    }
+
     // --- ServerCell ---
 
     private class ServerCell extends FrameLayout {
 
         private final Paint avatarPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         private final Paint letterPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final Paint logoPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final android.graphics.Matrix logoMatrix = new android.graphics.Matrix();
+        private android.graphics.Bitmap logoBitmap;
 
         private final TextView nameTv;
         private final TextView endpointTv;
@@ -550,6 +572,12 @@ public class ServerSelectFragment extends BaseFragment {
             int hash = Math.abs(server.name.hashCode());
             avatarPaint.setColor(AVATAR_COLORS[hash % AVATAR_COLORS.length]);
 
+            logoBitmap = serverLogo(getContext(), server.id);
+            logoPaint.setShader(logoBitmap == null ? null : new android.graphics.BitmapShader(
+                    logoBitmap,
+                    android.graphics.Shader.TileMode.CLAMP,
+                    android.graphics.Shader.TileMode.CLAMP));
+
             nameTv.setText(server.name);
             endpointTv.setText(server.host + ":" + server.port);
 
@@ -610,8 +638,19 @@ public class ServerSelectFragment extends BaseFragment {
             float r = dp(24);
             float cx = dp(20 + 14) + r;
             float cy = getHeight() / 2f;
-            canvas.drawCircle(cx, cy, r, avatarPaint);
-            canvas.drawText(initial, cx, cy - (letterPaint.descent() + letterPaint.ascent()) / 2f, letterPaint);
+            if (logoBitmap != null && logoPaint.getShader() != null) {
+                float d = 2 * r;
+                float scale = d / Math.min(logoBitmap.getWidth(), logoBitmap.getHeight());
+                logoMatrix.setScale(scale, scale);
+                logoMatrix.postTranslate(
+                        cx - r - (logoBitmap.getWidth() * scale - d) / 2f,
+                        cy - r - (logoBitmap.getHeight() * scale - d) / 2f);
+                ((android.graphics.BitmapShader) logoPaint.getShader()).setLocalMatrix(logoMatrix);
+                canvas.drawCircle(cx, cy, r, logoPaint);
+            } else {
+                canvas.drawCircle(cx, cy, r, avatarPaint);
+                canvas.drawText(initial, cx, cy - (letterPaint.descent() + letterPaint.ascent()) / 2f, letterPaint);
+            }
         }
     }
 }

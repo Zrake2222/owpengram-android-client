@@ -355,6 +355,9 @@ public class ServerInfoFragment extends BaseFragment {
     static class AvatarView extends View {
         private final Paint bgPaint  = new Paint(Paint.ANTI_ALIAS_FLAG);
         private final Paint txtPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final Paint logoPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final android.graphics.Matrix logoMatrix = new android.graphics.Matrix();
+        private android.graphics.Bitmap logoBitmap;
         private final String initial;
         private final int size;
 
@@ -369,6 +372,12 @@ public class ServerInfoFragment extends BaseFragment {
             txtPaint.setTextAlign(Paint.Align.CENTER);
             initial = server.name.isEmpty() ? "?" : String.valueOf(server.name.charAt(0)).toUpperCase();
 
+            logoBitmap = serverLogo(context, server.id);
+            if (logoBitmap != null) {
+                logoPaint.setShader(new android.graphics.BitmapShader(logoBitmap,
+                        android.graphics.Shader.TileMode.CLAMP, android.graphics.Shader.TileMode.CLAMP));
+            }
+
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(size, size);
             setLayoutParams(lp);
         }
@@ -376,8 +385,37 @@ public class ServerInfoFragment extends BaseFragment {
         @Override
         protected void onDraw(Canvas canvas) {
             float r = size / 2f;
-            canvas.drawCircle(r, r, r, bgPaint);
-            canvas.drawText(initial, r, r - (txtPaint.descent() + txtPaint.ascent()) / 2f, txtPaint);
+            if (logoBitmap != null && logoPaint.getShader() != null) {
+                float d = size;
+                float scale = d / Math.min(logoBitmap.getWidth(), logoBitmap.getHeight());
+                logoMatrix.setScale(scale, scale);
+                logoMatrix.postTranslate(
+                        -(logoBitmap.getWidth() * scale - d) / 2f,
+                        -(logoBitmap.getHeight() * scale - d) / 2f);
+                ((android.graphics.BitmapShader) logoPaint.getShader()).setLocalMatrix(logoMatrix);
+                canvas.drawCircle(r, r, r, logoPaint);
+            } else {
+                canvas.drawCircle(r, r, r, bgPaint);
+                canvas.drawText(initial, r, r - (txtPaint.descent() + txtPaint.ascent()) / 2f, txtPaint);
+            }
+        }
+
+        // Built-in server logos pulled from the desktop client (cached).
+        private static final java.util.HashMap<String, android.graphics.Bitmap> LOGO_CACHE = new java.util.HashMap<>();
+        private static android.graphics.Bitmap serverLogo(Context ctx, String id) {
+            int res = 0;
+            if (org.telegram.owpengram.OwpengramServers.ID_OWPENGRAM.equals(id)) res = org.telegram.messenger.R.drawable.server_owpengram;
+            else if (org.telegram.owpengram.OwpengramServers.ID_TELEGRAM.equals(id)) res = org.telegram.messenger.R.drawable.server_telegram;
+            else if (org.telegram.owpengram.OwpengramServers.ID_TEAMGRAM.equals(id)) res = org.telegram.messenger.R.drawable.server_teamgram;
+            if (res == 0 || ctx == null) return null;
+            android.graphics.Bitmap b = LOGO_CACHE.get(id);
+            if (b == null) {
+                try {
+                    b = android.graphics.BitmapFactory.decodeResource(ctx.getResources(), res);
+                } catch (Throwable ignore) {}
+                if (b != null) LOGO_CACHE.put(id, b);
+            }
+            return b;
         }
     }
 }
