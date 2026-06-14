@@ -669,9 +669,24 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
         }
 
         if (accountNumbers.size() > 0) {
-            items.add(UItem.asHeader(getString(R.string.SettingsAccounts)));
-            for (int i = 0; i < accountNumbers.size(); ++i) {
-                items.add(AccountCell.Factory.of(i, accountNumbers.get(i)));
+            // Group accounts by server, with the server name as the section header.
+            java.util.List<Integer> order = new java.util.ArrayList<>();
+            for (int i = 0; i < accountNumbers.size(); i++) {
+                order.add(i);
+            }
+            java.util.Collections.sort(order, (a, b) -> {
+                int c = serverLabel(accountNumbers.get(a)).compareToIgnoreCase(serverLabel(accountNumbers.get(b)));
+                return c != 0 ? c : Integer.compare(a, b);
+            });
+            String lastServer = null;
+            for (int idx : order) {
+                int account = accountNumbers.get(idx);
+                String serverName = serverLabel(account);
+                if (!serverName.equals(lastServer)) {
+                    items.add(UItem.asHeader(serverName));
+                    lastServer = serverName;
+                }
+                items.add(AccountCell.Factory.of(idx, account));
             }
             items.add(UItem.asShadow(null));
         }
@@ -717,6 +732,7 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
         items.add(SettingCell.Factory.of(18, 0xFF1BA4ED, 0xFF1488E1, R.drawable.settings_faq, getString(R.string.TelegramFAQ)));
         items.add(SettingCell.Factory.of(23, 0xFFC46EF4, 0xFF9F55DF, R.drawable.settings_features, getString(R.string.TelegramFeatures)));
         items.add(SettingCell.Factory.of(19, 0xFF55CA47, 0xFF27B434, R.drawable.settings_policy, getString(R.string.PrivacyPolicy)));
+        items.add(SettingCell.Factory.of(30, 0xFF6E7B86, 0xFF55606A, R.drawable.settings_features, "OwpenGram"));
 
         if (BuildVars.LOGS_ENABLED || BuildVars.DEBUG_PRIVATE_VERSION) {
             items.add(UItem.asShadow(null));
@@ -803,6 +819,9 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
             case 19:
                 Browser.openUrl(getParentActivity(), LocaleController.getString(R.string.PrivacyPolicyUrl));
                 break;
+            case 30:
+                Browser.openUrl(getParentActivity(), org.telegram.owpengram.OwpengramServers.SERVER_REPO_URL);
+                break;
 
             case 20:
                 ProfileActivity.sendLogs(getParentActivity(), false);
@@ -822,6 +841,11 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
                 break;
             }
         }
+    }
+
+    private String serverLabel(int account) {
+        String name = org.telegram.owpengram.OwpengramServers.serverNameForAccount(account);
+        return name != null ? name : getString(R.string.AppName);
     }
 
     private boolean onLongClick(UItem item, View view, int position, float x, float y) {
@@ -872,7 +896,7 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
             if (!versionName.endsWith("_O2")) {
                 versionName += "_O2";
             }
-            return formatString(R.string.TelegramVersion, String.format(Locale.US, "v%s (%d)\n%s", versionName, code, abi));
+            return "OwpenGram " + String.format(Locale.US, "v%s (%d)\n%s", versionName, code, abi);
         } catch (Exception e) {
             FileLog.e(e);
         }

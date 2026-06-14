@@ -364,10 +364,13 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
             for (int acc : accountNumbers) {
                 final int account = acc;
                 final String serverName = serverLabel(acc);
-                if (lastServer != null && !serverName.equals(lastServer)) {
-                    o.addGap(); // separator between server groups
+                if (!serverName.equals(lastServer)) {
+                    if (lastServer != null) {
+                        o.addGap(); // separator between server groups
+                    }
+                    o.addView(serverHeaderView(serverName), LayoutHelper.createLinear(230, LayoutHelper.WRAP_CONTENT));
+                    lastServer = serverName;
                 }
-                lastServer = serverName;
                 final View btn = accountView(acc, currentAccount == acc);
                 btn.setOnClickListener(v -> {
                     if (currentAccount == account) return;
@@ -393,6 +396,17 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
     private String serverLabel(int account) {
         String name = org.telegram.owpengram.OwpengramServers.serverNameForAccount(account);
         return name != null ? name : getString(R.string.AppName);
+    }
+
+    private android.widget.TextView serverHeaderView(String title) {
+        android.widget.TextView tv = new android.widget.TextView(getContext());
+        tv.setText(title);
+        tv.setTextSize(android.util.TypedValue.COMPLEX_UNIT_DIP, 12);
+        tv.setTypeface(AndroidUtilities.bold());
+        tv.setTextColor(getThemedColor(Theme.key_windowBackgroundWhiteBlueHeader));
+        tv.setPadding(dp(16), dp(8), dp(16), dp(4));
+        tv.setAllCaps(true);
+        return tv;
     }
 
     public LinearLayout accountView(int account, boolean selected) {
