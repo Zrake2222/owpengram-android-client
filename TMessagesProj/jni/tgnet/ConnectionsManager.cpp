@@ -1858,7 +1858,7 @@ void ConnectionsManager::applyServerConfig(std::string host, uint32_t port, bool
                 : Handshake::calculatePublicKeyFingerprint(pemKey);
         Handshake::cleanupServerKeys();
 
-        // 2. Rebuild the DC 1..5 address table for the chosen server.
+        // 2. Build the DC 1..5 address table for the chosen server.
         struct DcEntry { const char *ip; int port; };
         static const DcEntry prod[5] = {
             {"149.154.175.50", 443},
@@ -1867,47 +1867,81 @@ void ConnectionsManager::applyServerConfig(std::string host, uint32_t port, bool
             {"149.154.167.91", 443},
             {"149.154.171.5",  443}
         };
-        for (int dcId = 1; dcId <= 5; dcId++) {
-            Datacenter *dc = getDatacenterWithId(dcId);
-            if (dc == nullptr) {
-                dc = new Datacenter(instanceNum, dcId);
-                datacenters[dcId] = dc;
-            }
-            std::vector<TcpAddress> addrs;
-            if (isTelegram) {
-                // Real Telegram DCs; help.getConfig will add alternates.
-                addrs.emplace_back(prod[dcId - 1].ip, prod[dcId - 1].port, 0, "");
-            } else {
-                // Single-server backend: every dc_id resolves to the one machine,
-                // so file/media references to dc 2..5 still connect.
-                addrs.emplace_back(host, port, 0, "");
-            }
-            dc->suspendConnections(true);
-            if (resetKeys) {
-                dc->clearAuthKey(HandshakeTypeAll);
-            }
-            dc->replaceAddresses(addrs, 0);
-            dc->resetAddressAndPortNum();
-            dc->recreateSessions(HandshakeTypeAll);
-        }
-
-        // 3. Home DC + lock state.
         if (isTelegram) {
-            currentDatacenterId = (mainDcId > 0) ? mainDcId : 2;
+            // Telegram multi-DC: behave like stock Telegram. Ensure all 5 DCs exist
+            // and carry their home address, using ADD (never overwrite) so addresses
+            // learned via help.getConfig survive — otherwise media/stickers/reactions
+            // /custom emoji that live on DC3/4/5 cannot be downloaded. We seed BOTH
+            // the regular and the download/media address with the DC's IP so a media
+            // connection always has an endpoint even before getConfig responds.
             serverOptionsLocked = false;
+            for (int dcId = 1; dcId <= 5; dcId++) {
+                Datacenter *dc = getDatacenterWithId(dcId);
+                if (dc == nullptr) {
+                    dc = new Datacenter(instanceNum, dcId);
+                    datacenters[dcId] = dc;
+                }
+                dc->addAddressAndPort(prod[dcId - 1].ip, prod[dcId - 1].port, 0, "");
+                dc->addAddressAndPort(prod[dcId - 1].ip, prod[dcId - 1].port, TcpAddressFlagDownload, "");
+            }
+            if (resetKeys) {
+                // Fresh switch to Telegram: drop stale keys/sessions, home on DC2.
+                for (int dcId = 1; dcId <= 5; dcId++) {
+                    Datacenter *dc = getDatacenterWithId(dcId);
+                    dc->suspendConnections(true);
+                    dc->clearAuthKey(HandshakeTypeAll);
+                    dc->clearServerSalts(false);
+                    dc->clearServerSalts(true);
+                    dc->resetAddressAndPortNum();
+                    dc->recreateSessions(HandshakeTypeAll);
+                }
+                currentDatacenterId = (mainDcId > 0) ? mainDcId : 2;
+            } else if (currentDatacenterId == 0) {
+                currentDatacenterId = (mainDcId > 0) ? mainDcId : 2;
+            }
+            // On restore (resetKeys == false) leave saved addresses, sessions, keys
+            // and the home DC untouched so stock multi-DC media handling keeps working.
         } else {
-            currentDatacenterId = (mainDcId > 0) ? mainDcId : 1;
+            // Single-server backend: every dc_id resolves to the one machine, so
+            // file/media references to dc 2..5 still connect. Map both the regular and
+            // the download/media address to the single host:port, then lock so
+            // help.getConfig can't override it.
             serverOptionsLocked = true;
+            for (int dcId = 1; dcId <= 5; dcId++) {
+                Datacenter *dc = getDatacenterWithId(dcId);
+                if (dc == nullptr) {
+                    dc = new Datacenter(instanceNum, dcId);
+                    datacenters[dcId] = dc;
+                }
+                std::vector<TcpAddress> addrs;
+                addrs.emplace_back(host, port, 0, "");
+                std::vector<TcpAddress> downloadAddrs;
+                downloadAddrs.emplace_back(host, port, 0, "");
+                dc->suspendConnections(true);
+                if (resetKeys) {
+                    dc->clearAuthKey(HandshakeTypeAll);
+                }
+                dc->replaceAddresses(addrs, 0);          // regular ipv4
+                dc->replaceAddresses(downloadAddrs, 2);  // download/media ipv4 -> same host
+                dc->resetAddressAndPortNum();
+                dc->recreateSessions(HandshakeTypeAll);
+            }
+            currentDatacenterId = (mainDcId > 0) ? mainDcId : 1;
         }
         movingToDatacenterId = DEFAULT_DATACENTER_ID;
         saveConfig();
 
-        // 4. Reconnect on the new current DC.
+        // 3. Reconnect on the current DC if it has no key yet.
         Datacenter *cur = getDatacenterWithId(currentDatacenterId);
         if (cur != nullptr && !cur->hasAuthKey(ConnectionTypeGeneric, 0) && !cur->isHandshakingAny()) {
             cur->clearServerSalts(false);
             cur->clearServerSalts(true);
             cur->beginHandshake(HandshakeTypeAll, true);
+        }
+        // 4. Telegram: refresh the full multi-DC table (download/media endpoints and
+        //    address alternates for every DC) so media on non-home DCs loads.
+        if (isTelegram) {
+            updateDcSettings(0, false, false);
         }
         scheduleTask([&] {
             processRequestQueue(0, 0);
