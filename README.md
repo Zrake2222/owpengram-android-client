@@ -1,50 +1,88 @@
-# 🤖 OwpenGram Android
+# 🤖 OwpenGram for Android
 
-**Android client for OwpenGram server - Telegram-compatible messaging.**
+**One familiar app. Any server you trust.**
 
-![android-demo](https://github.com/user-attachments/assets/6728fd39-724f-4bfc-8a05-7c98062fe619)
+OwpenGram for Android is a multi-server messenger built on a fast, familiar
+experience. Use the official network, your own private server, or any community
+node — each account independent, all in one app. Private by design, comfortable
+to use, and free from lock-in.
+
+> 📸 _Screenshot placeholder — to be added._
 
 ---
 
-## ✨ What is OwpenGram Android?
+## ✨ Why you'll like it
 
-OwpenGram Android is an Android messaging client compatible with the [OwpenGram Server](https://github.com/owpengram/owpengram-server). Based on Telegram for Android, it provides a familiar interface for connecting to your own self-hosted messaging server.
+- 🌐 **Multi-server** — add accounts on different servers and switch between them freely.
+- 🏠 **Bring your own server** — connect to a server you host and fully control.
+- 🧠 **Familiar & comfortable** — the experience you already know, no learning curve.
+- 🔒 **Private** — talk on infrastructure you trust, away from the cloud.
+- 🛡️ **Censorship-resistant** — your own server stays reachable when others are blocked.
+- 🆓 **Open source** — read it, audit it, build it yourself.
 
-## 🔗 Compatibility
+## 🌐 How multi-server works
 
-This client is designed to work with the [OwpenGram Server](https://github.com/owpengram/owpengram-server). Simply configure the client to connect to your OwpenGram server instance and start messaging!
+Every account is tied to a server, and you choose that server when you sign in.
+OwpenGram comes with ready-to-use options:
 
-## ⚙️ Server Configuration
+- **Telegram** — the official network (use your normal Telegram account)
+- **OwpenGram** — the project's public server
+- **Custom** — any server you or your community runs
 
-To change the server address, replace all instances of the server IP address in `TMessagesProj/jni/tgnet/ConnectionsManager.cpp` with your server's IP address or domain name.
+Add several accounts on different servers and they stay cleanly separated —
+different identities, different data, one app.
 
-## 📚 Build Instructions & Documentation
+## 🔌 Connect your own server
 
-### Interactive build (Windows)
+On the **server selection screen** (shown when you log in or add a new account),
+tap **➕ Add server** and fill in:
 
-Double-click or run from any terminal:
+- **Name** — any label you like (e.g. *My Server*)
+- **Host / IP address** — your server's IP or domain (e.g. `203.0.113.10` or `chat.example.com`)
+- **Port** — `10443` (the default OwpenGram MTProto port)
+- **Multi-DC mode** — leave **OFF** for a self-hosted server (turn ON only for true multi-datacenter, Telegram-style networks)
+- **Main data center** — leave as `1` for a self-hosted server
+- **RSA Public Key (PEM)** — leave **empty** unless your server uses a custom key
+
+Then save, select the server, and log in as usual.
+
+> The default OwpenGram server key is already built in, so the RSA field stays
+> blank in almost all cases. Only paste a PEM public key if the server operator
+> replaced the server's key with their own.
+
+Don't have a server yet? Spin one up in one command:
+👉 [owpengram-server](https://github.com/owpengram/owpengram-server)
+
+## 🛠️ Build (Windows)
+
+Run the interactive build script — double-click it or run from a terminal:
 
 ```bat
-build-android.cmd
+build-android.bat
 ```
 
-The script will guide you through server IP, API credentials, submodules, SDK setup, and Gradle build. Settings are saved to `.owpengram-build.local.json` (gitignored).
+It guides you through API credentials, the keystore, SDK setup and the Gradle
+build, and remembers your answers in `.owpengram-build.local.json` (gitignored).
 
-Requirements: **JDK 17**, **Android SDK** (API 35, build-tools 35.0.0, NDK 21.4.7075529), **Git**.
+**Requirements:** JDK 17, Android SDK (API 35, build-tools 35.0.0,
+NDK 21.4.7075529), Git.
 
-For manual steps and other platforms, see the original [Telegram for Android repository](https://github.com/DrKLO/Telegram).
+## 📦 Part of the OwpenGram project
+
+- 🚀 [Server](https://github.com/owpengram/owpengram-server)
+- 💻 [Desktop client](https://github.com/owpengram/owpengram-desktop-client)
+- 🌐 [GitHub organization](https://github.com/owpengram)
 
 ## 💬 Community
 
-- 📢 **Telegram Channel:** [@owpengram](https://t.me/owpengram)
-- 💬 **Telegram Chat:** [Join the discussion](https://t.me/+sVB6Ymv70jEwNTAy)
+- 📢 Channel: [@owpengram](https://t.me/owpengram)
+- 💬 Chat: [Join the discussion](https://t.me/+sVB6Ymv70jEwNTAy)
 
 ## 📄 License
 
-[GPL-2.0](LICENSE)
+Based on [Telegram for Android](https://github.com/DrKLO/Telegram) — licensed
+under **GNU GPL v2 or later** ([LICENSE](LICENSE)).
 
 ---
 
-## ⭐ Give us a Star!
-
-If OwpenGram Android helps you, consider giving us a star on GitHub!
+⭐ If OwpenGram is useful to you, a star on GitHub helps a lot.
