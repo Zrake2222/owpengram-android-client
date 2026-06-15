@@ -115,6 +115,7 @@ public class IntroActivity extends BaseFragment implements NotificationCenter.No
     private boolean justCreated = false;
     private boolean startPressed = false;
     private ImageView introLogoView;
+    private TextureView introTextureView;
     private CharSequence[] titles;
     private String[] messages;
     private int currentViewPagerPage;
@@ -248,6 +249,11 @@ public class IntroActivity extends BaseFragment implements NotificationCenter.No
         frameContainerView.addView(frameLayout2, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.LEFT | Gravity.TOP, 0, 78, 0, 0));
 
         TextureView textureView = new TextureView(context);
+        introTextureView = textureView;
+        // Hide the GL surface (and its round logo plate) on page 0, so only the
+        // OwpenGram hexagon logo shows there with no round background behind it.
+        // It fades in as the user swipes to the feature pages (which keep it).
+        textureView.setAlpha(0f);
         frameLayout2.addView(textureView, LayoutHelper.createFrame(ICON_WIDTH_DP, ICON_HEIGHT_DP, Gravity.CENTER));
 
         // Big OwpenGram logo shown on the first intro page (page 0). The Telegram GL
@@ -320,6 +326,11 @@ public class IntroActivity extends BaseFragment implements NotificationCenter.No
                 if (introLogoView != null) {
                     // Visible only on the first page; fades out while swiping away.
                     introLogoView.setAlpha(position == 0 ? Math.max(0f, 1f - positionOffset) : 0f);
+                }
+                if (introTextureView != null) {
+                    // GL surface hidden on page 0 (no round plate behind our logo),
+                    // fading in as the user swipes toward the feature pages.
+                    introTextureView.setAlpha(position == 0 ? Math.min(1f, positionOffset) : 1f);
                 }
             }
 

@@ -2583,11 +2583,18 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
             getConnectionsManager().sendRequest(req, (response, error) -> {
                 AndroidUtilities.runOnUIThread(() -> {
                     if (error == null) {
+                        TLRPC.TL_help_countriesList help_countriesList = (TLRPC.TL_help_countriesList) response;
+                        if (help_countriesList.countries.isEmpty()) {
+                            // Self-hosted servers (e.g. OwpenGram) may return an empty
+                            // country list. Keep the bundled countries.txt so phone-code
+                            // auto-detection still works instead of forcing the user to
+                            // pick a country manually.
+                            return;
+                        }
                         countriesArray.clear();
                         codesMap.clear();
                         phoneFormatMap.clear();
 
-                        TLRPC.TL_help_countriesList help_countriesList = (TLRPC.TL_help_countriesList) response;
                         for (int i = 0; i < help_countriesList.countries.size(); i++) {
                             TLRPC.TL_help_country c = help_countriesList.countries.get(i);
                             for (int k = 0; k < c.country_codes.size(); k++) {

@@ -40,14 +40,14 @@ public class NotificationsService extends Service {
     }
 
     private void showForegroundNotification() {
-        NotificationsController.checkOtherNotificationsChannel();
+        NotificationsController.checkPushServiceNotificationsChannel();
 
         Intent openIntent = new Intent(this, LaunchActivity.class);
         openIntent.setAction(Intent.ACTION_MAIN);
         openIntent.addCategory(Intent.CATEGORY_LAUNCHER);
         PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, openIntent, PendingIntent.FLAG_IMMUTABLE);
 
-        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, NotificationsController.OTHER_NOTIFICATIONS_CHANNEL)
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, NotificationsController.PUSH_SERVICE_NOTIFICATIONS_CHANNEL)
                 .setSmallIcon(R.drawable.notification)
                 .setContentTitle(LocaleController.getString(R.string.NotificationsService))
                 .setContentText(LocaleController.getString(R.string.NotificationsServiceInfo))

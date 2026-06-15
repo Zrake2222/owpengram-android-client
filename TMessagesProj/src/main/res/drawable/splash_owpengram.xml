@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 12+ system splash icon. OwpenGram logo centered at a size that fits
+     within the circular splash area so the hexagon isn't clipped. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:drawable="@drawable/server_owpengram"
+        android:gravity="center"
+        android:width="170dp"
+        android:height="170dp" />
+</layer-list>

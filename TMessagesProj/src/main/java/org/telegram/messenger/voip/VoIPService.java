@@ -3359,6 +3359,30 @@ public class VoIPService extends Service implements SensorEventListener, AudioMa
 		return switchingStream;
 	}
 
+	// Numeric (per-component) comparison of a dotted version string against a
+	// minimum, e.g. isVoipVersionAtLeast("10.0.0", 2, 7, 7) == true. Avoids the
+	// lexicographic pitfall where "10.0.0" < "2.7.7" as plain strings.
+	private static boolean isVoipVersionAtLeast(String version, int... min) {
+		if (version == null) {
+			return false;
+		}
+		String[] parts = version.split("\\.");
+		for (int i = 0; i < min.length; i++) {
+			int v = 0;
+			if (i < parts.length) {
+				try {
+					v = Integer.parseInt(parts[i].trim());
+				} catch (Exception ignore) {
+					v = 0;
+				}
+			}
+			if (v != min[i]) {
+				return v > min[i];
+			}
+		}
+		return true;
+	}
+
 	private void initiateActualEncryptedCall() {
 		if (timeoutRunnable != null) {
 			AndroidUtilities.cancelRunOnUIThread(timeoutRunnable);
@@ -3473,7 +3497,12 @@ public class VoIPService extends Service implements SensorEventListener, AudioMa
 			// encryption key
 			final Instance.EncryptionKey encryptionKey = new Instance.EncryptionKey(authKey, isOutgoing);
 
-			boolean newAvailable = "2.7.7".compareTo(privateCall.protocol.library_versions.get(0)) <= 0;
+			// Compare versions numerically, not lexicographically. As strings,
+			// "2.7.7".compareTo("10.0.0") > 0 ('2' > '1'), so double-digit library
+			// versions (10/11/12/13) looked OLDER than 2.7.7 and the outgoing video
+			// capturer below was destroyed — leaving the caller's camera off on
+			// video calls. Our server returns "10.0.0" first, which triggered this.
+			boolean newAvailable = isVoipVersionAtLeast(privateCall.protocol.library_versions.get(0), 2, 7, 7);
 			if (captureDevice[CAPTURE_DEVICE_CAMERA] != 0 && !newAvailable) {
 				NativeInstance.destroyVideoCapturer(captureDevice[CAPTURE_DEVICE_CAMERA]);
 				captureDevice[CAPTURE_DEVICE_CAMERA] = 0;
