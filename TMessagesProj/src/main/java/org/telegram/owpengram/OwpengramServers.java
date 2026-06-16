@@ -220,6 +220,16 @@ public class OwpengramServers {
     }
 
     /**
+     * Whether the account's current server is the official Telegram network.
+     * Used to hide Telegram-specific help entries (Ask a Question, Telegram FAQ /
+     * Features, Privacy Policy) on OwpenGram and other servers, where they don't apply.
+     */
+    public static boolean serverIsOfficialTelegram(int accountNum) {
+        OwpengramServer s = getServerForAccount(accountNum);
+        return s != null && s.isTelegram;
+    }
+
+    /**
      * True when two account slots target the same server. Used so the duplicate
      * login check (same phone / same user id) only triggers within one server —
      * the same phone number on a different server is a different account.

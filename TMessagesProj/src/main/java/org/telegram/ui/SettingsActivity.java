@@ -732,10 +732,16 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
             items.add(UItem.asShadow(null));
 
         items.add(UItem.asHeader(getString(R.string.SettingsHelp)));
-        items.add(SettingCell.Factory.of(17, 0xFFF09F1B, 0xFFE18A11, R.drawable.settings_ask, getString(R.string.AskAQuestion)));
-        items.add(SettingCell.Factory.of(18, 0xFF1BA4ED, 0xFF1488E1, R.drawable.settings_faq, getString(R.string.TelegramFAQ)));
-        items.add(SettingCell.Factory.of(23, 0xFFC46EF4, 0xFF9F55DF, R.drawable.settings_features, getString(R.string.TelegramFeatures)));
-        items.add(SettingCell.Factory.of(19, 0xFF55CA47, 0xFF27B434, R.drawable.settings_policy, getString(R.string.PrivacyPolicy)));
+        // Ask a Question / Telegram FAQ / Telegram Features / Privacy Policy are
+        // Telegram-specific. Show them only when the active account is on the
+        // official Telegram network; hide them on OwpenGram and other servers.
+        boolean officialTelegram = org.telegram.owpengram.OwpengramServers.serverIsOfficialTelegram(currentAccount);
+        if (officialTelegram) {
+            items.add(SettingCell.Factory.of(17, 0xFFF09F1B, 0xFFE18A11, R.drawable.settings_ask, getString(R.string.AskAQuestion)));
+            items.add(SettingCell.Factory.of(18, 0xFF1BA4ED, 0xFF1488E1, R.drawable.settings_faq, getString(R.string.TelegramFAQ)));
+            items.add(SettingCell.Factory.of(23, 0xFFC46EF4, 0xFF9F55DF, R.drawable.settings_features, getString(R.string.TelegramFeatures)));
+            items.add(SettingCell.Factory.of(19, 0xFF55CA47, 0xFF27B434, R.drawable.settings_policy, getString(R.string.PrivacyPolicy)));
+        }
         items.add(SettingCell.Factory.of(30, 0xFF6E7B86, 0xFF55606A, R.drawable.github_logo, "OwpenGram"));
 
         if (BuildVars.LOGS_ENABLED || BuildVars.DEBUG_PRIVATE_VERSION) {
