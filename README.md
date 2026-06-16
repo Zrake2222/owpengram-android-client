@@ -7,6 +7,10 @@ experience. Use the official network, your own private server, or any community
 node — each account independent, all in one app. Private by design, comfortable
 to use, and free from lock-in.
 
+> 🤖 **Available now for Android.** iOS and a web client are planned.
+
+> 🔗 Built on **MTProto API layer 222**.
+
 > 📸 _Screenshot placeholder — to be added._
 
 ---
@@ -41,7 +45,7 @@ tap **➕ Add server** and fill in:
 - **Host / IP address** — your server's IP or domain (e.g. `203.0.113.10` or `chat.example.com`)
 - **Port** — `10443` (the default OwpenGram MTProto port)
 - **Multi-DC mode** — leave **OFF** for a self-hosted server (turn ON only for true multi-datacenter, Telegram-style networks)
-- **Main data center** — leave as `1` for a self-hosted server
+- **Main data center** — leave as `2` (the default) for a self-hosted server
 - **RSA Public Key (PEM)** — leave **empty** unless your server uses a custom key
 
 Then save, select the server, and log in as usual.
