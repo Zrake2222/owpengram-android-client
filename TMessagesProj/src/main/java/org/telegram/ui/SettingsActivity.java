@@ -945,8 +945,8 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
                     break;
             }
             String versionName = pInfo.versionName;
-            if (!versionName.endsWith("_O2")) {
-                versionName += "_O2";
+            if (!versionName.endsWith("_O3")) {
+                versionName += "_O3";
             }
             return "OwpenGram " + String.format(Locale.US, "v%s (%d)\n%s", versionName, code, abi);
         } catch (Exception e) {
