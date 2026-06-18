@@ -112,7 +112,6 @@ public class OwpengramServers {
     public static List<OwpengramServer> listServers() {
         List<OwpengramServer> result = new ArrayList<>();
         result.add(telegramServer());
-        result.add(teamgramServer());
         result.add(owpengramServer());
         result.addAll(loadCustomServers());
         return result;
