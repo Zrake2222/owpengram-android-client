@@ -74,6 +74,7 @@ import org.telegram.messenger.ImageLoader;
 import org.telegram.messenger.ImageLocation;
 import org.telegram.messenger.LiteMode;
 import org.telegram.messenger.LocaleController;
+import org.telegram.messenger.MediaDataController;
 import org.telegram.messenger.MessagesController;
 import org.telegram.messenger.MessagesStorage;
 import org.telegram.messenger.NotificationCenter;
@@ -100,6 +101,8 @@ import org.telegram.ui.Components.BulletinFactory;
 import org.telegram.ui.Components.CubicBezierInterpolator;
 import org.telegram.ui.Components.FloatingDebug.FloatingDebugController;
 import org.telegram.ui.Components.FragmentFloatingButton;
+import org.telegram.ui.Components.HintsController;
+import org.telegram.ui.Components.IconBackgroundColors;
 import org.telegram.ui.Components.ImageUpdater;
 import org.telegram.ui.Components.InstantCameraView;
 import org.telegram.ui.Components.ItemOptions;
@@ -129,6 +132,7 @@ import org.telegram.ui.TON.TONIntroActivity;
 import org.telegram.ui.bots.BotBiometry;
 import org.telegram.ui.bots.BotDownloads;
 import org.telegram.ui.bots.BotLocation;
+import org.telegram.ui.bots.BotWebViewSheet;
 import org.telegram.ui.bots.SetupEmojiStatusSheet;
 
 import java.io.File;
@@ -172,7 +176,7 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
     private TextView titleView;
     private TextView subtitleView;
     private TextView versionView;
-    private boolean hasMainTabs;
+    public boolean hasMainTabs;
 
     private View navigationBar;
 
@@ -445,7 +449,7 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
         titleView.setGravity(Gravity.CENTER);
         titleView.setSingleLine();
         titleView.setEllipsize(TextUtils.TruncateAt.END);
-        topView.addView(titleView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.CENTER_HORIZONTAL | Gravity.TOP, 0, 138.333f - 12, 0, 0));
+        topView.addView(titleView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.CENTER_HORIZONTAL | Gravity.TOP, 16, 138.333f - 12, 16, 0));
 
         subtitleView = new TextView(context);
         subtitleView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13);
@@ -691,15 +695,15 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
             items.add(UItem.asShadow(null));
         }
 
-        items.add(SettingCell.Factory.of(1, 0xFF1CA5ED, 0xFF1488E1, R.drawable.settings_account, getString(R.string.SettingsAccount), getString(R.string.SettingsAccountInfo)));
-        items.add(SettingCell.Factory.of(2, 0xFFF09F1B, 0xFFE18A11, R.drawable.settings_chat, getString(R.string.SettingsChat), getString(R.string.SettingsChatInfo)));
-        items.add(SettingCell.Factory.of(3, 0xFF55CA47, 0xFF27B434, R.drawable.settings_privacy, getString(R.string.SettingsPrivacySecurity), getString(R.string.SettingsPrivacySecurityInfo)));
-        items.add(SettingCell.Factory.of(5, 0xFFF45255, 0xFFDF3955, R.drawable.settings_sounds, getString(R.string.SettingsNotifications), getString(R.string.SettingsNotificationsInfo)));
-        items.add(SettingCell.Factory.of(6, 0xFF4F85F6, 0xFF3568E8, R.drawable.settings_data, getString(R.string.SettingsData), getString(R.string.SettingsDataInfo)));
-        items.add(SettingCell.Factory.of(7, 0xFF1CA5ED, 0xFF1387E1, R.drawable.settings_folders, getString(R.string.SettingsFolders), getString(R.string.SettingsFoldersInfo)));
-        items.add(SettingCell.Factory.of(8, 0xFF32C0CE, 0xFF1D9CC6, R.drawable.settings_devices, getString(R.string.SettingsDevices), getString(R.string.SettingsDevicesInfo)));
-        items.add(SettingCell.Factory.of(9, 0xFFF28B31, 0xFFE26314, R.drawable.settings_power, getString(R.string.SettingsPowerSaving), getString(R.string.SettingsPowerSavingInfo)));
-        items.add(SettingCell.Factory.of(10, 0xFFC46EF4, 0xFF9F55DF, R.drawable.settings_language, getString(R.string.SettingsLanguage), LocaleController.getCurrentLanguageName()));
+        items.add(SettingCell.Factory.of(1, IconBackgroundColors.BLUE.top, IconBackgroundColors.BLUE.bottom, R.drawable.settings_account, getString(R.string.SettingsAccount), getString(R.string.SettingsAccountInfo)));
+        items.add(SettingCell.Factory.of(2, IconBackgroundColors.ORANGE.top, IconBackgroundColors.ORANGE.bottom, R.drawable.settings_chat, getString(R.string.SettingsChat), getString(R.string.SettingsChatInfo)));
+        items.add(SettingCell.Factory.of(3, IconBackgroundColors.GREEN.top, IconBackgroundColors.GREEN.bottom, R.drawable.settings_privacy, getString(R.string.SettingsPrivacySecurity), getString(R.string.SettingsPrivacySecurityInfo)));
+        items.add(SettingCell.Factory.of(5, IconBackgroundColors.RED.top, IconBackgroundColors.RED.bottom, R.drawable.settings_sounds, getString(R.string.SettingsNotifications), getString(R.string.SettingsNotificationsInfo)));
+        items.add(SettingCell.Factory.of(6, IconBackgroundColors.BLUE_DEEP.top, IconBackgroundColors.BLUE_DEEP.bottom, R.drawable.settings_data, getString(R.string.SettingsData), getString(R.string.SettingsDataInfo)));
+        items.add(SettingCell.Factory.of(7, IconBackgroundColors.BLUE_ALT.top, IconBackgroundColors.BLUE_ALT.bottom, R.drawable.settings_folders, getString(R.string.SettingsFolders), getString(R.string.SettingsFoldersInfo)));
+        items.add(SettingCell.Factory.of(8, IconBackgroundColors.CYAN.top, IconBackgroundColors.CYAN.bottom, R.drawable.settings_devices, getString(R.string.SettingsDevices), getString(R.string.SettingsDevicesInfo)));
+        items.add(SettingCell.Factory.of(9, IconBackgroundColors.ORANGE_DEEP.top, IconBackgroundColors.ORANGE_DEEP.bottom, R.drawable.settings_power, getString(R.string.SettingsPowerSaving), getString(R.string.SettingsPowerSavingInfo)));
+        items.add(SettingCell.Factory.of(10, IconBackgroundColors.PURPLE.top, IconBackgroundColors.PURPLE.bottom, R.drawable.settings_language, getString(R.string.SettingsLanguage), LocaleController.getCurrentLanguageName()));
 
         items.add(UItem.asShadow(null));
 
@@ -722,6 +726,19 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
             items.add(SettingCell.Factory.of(13, 0xFF1BA4ED, 0xFF1488E1, R.drawable.settings_ton, getString(R.string.MyTON), null, c.balanceAvailable() && balance > 0 ? StarsIntroActivity.formatStarsAmount(c.getBalance(), 0.85f, ' ') : ""));
         }
 //        items.add(SettingCell.Factory.of(14, 0, "Wallet"));
+
+        TLRPC.TL_attachMenuBots menuBots = MediaDataController.getInstance(UserConfig.selectedAccount).getAttachMenuBots();
+        if (menuBots != null && menuBots.bots != null && !menuBots.bots.isEmpty()) {
+            for (TLRPC.TL_attachMenuBot attachMenuBot : menuBots.bots) {
+                final long WALLET_BOT_ID = 1985737506L;
+                if (attachMenuBot.show_in_side_menu && attachMenuBot.bot_id == WALLET_BOT_ID) {
+                    UItem item = SettingCell.Factory.ofBot(attachMenuBot, 0xFF1BA4ED, 0xFF1488E1, R.drawable.settings_wallet);
+                    item.object = attachMenuBot;
+                    items.add(item);
+                }
+            }
+        }
+
         if (serverPremium && !getMessagesController().premiumFeaturesBlocked()) {
             items.add(SettingCell.Factory.of(15, 0xFFF45255, 0xFFDF3955, R.drawable.settings_business, getString(R.string.TelegramBusiness)));
         }
@@ -756,6 +773,25 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
     }
 
     private void onClick(UItem item, View view, int position, float x, float y) {
+        if (item.object instanceof TLRPC.TL_attachMenuBot) {
+            TLRPC.TL_attachMenuBot attachMenuBot = (TLRPC.TL_attachMenuBot) item.object;
+            if (attachMenuBot.inactive || attachMenuBot.side_menu_disclaimer_needed) {
+                WebAppDisclaimerAlert.show(getContext(), (allowSendMessage) -> {
+                    TLRPC.TL_messages_toggleBotInAttachMenu botRequest = new TLRPC.TL_messages_toggleBotInAttachMenu();
+                    botRequest.bot = MessagesController.getInstance(currentAccount).getInputUser(attachMenuBot.bot_id);
+                    botRequest.enabled = true;
+                    botRequest.write_allowed = true;
+                    ConnectionsManager.getInstance(currentAccount).sendRequest(botRequest, (response2, error2) -> AndroidUtilities.runOnUIThread(() -> {
+                        attachMenuBot.inactive = attachMenuBot.side_menu_disclaimer_needed = false;
+                        LaunchActivity.showAttachMenuBot(LaunchActivity.instance, currentAccount, attachMenuBot, null, true);
+                        MediaDataController.getInstance(currentAccount).updateAttachMenuBotsInCache();
+                    }), ConnectionsManager.RequestFlagInvokeAfter | ConnectionsManager.RequestFlagFailOnServerErrors);
+                }, null, null);
+            } else {
+                LaunchActivity.showAttachMenuBot(LaunchActivity.instance, currentAccount, attachMenuBot, null, true);
+            }
+            return;
+        }
         if (item.instanceOf(AccountCell.Factory.class)) {
             final int account = item.intValue;
             if (LaunchActivity.instance != null) {
@@ -859,6 +895,12 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
     }
 
     private boolean onLongClick(UItem item, View view, int position, float x, float y) {
+        if (item.object instanceof TLRPC.TL_attachMenuBot) {
+            TLRPC.TL_attachMenuBot attachMenuBot = (TLRPC.TL_attachMenuBot) item.object;
+            BotWebViewSheet.deleteBot(currentAccount, attachMenuBot.bot_id, () -> listView.adapter.update(true));
+            return true;
+        }
+
         if (item.instanceOf(SettingsSearchCell.Factory.class)) {
             String link = null;
             if (item.object instanceof ProfileActivity.SearchAdapter.SearchResult) {
@@ -1102,6 +1144,7 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
 
         private final Theme.ResourcesProvider resourcesProvider;
         private final Background iconBackground;
+        private final FrameLayout iconLayout;
         private final ImageView iconView;
         private final LinearLayout textLayout;
         private final TextView titleView;
@@ -1114,9 +1157,12 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
             this.resourcesProvider = resourcesProvider;
             setOrientation(HORIZONTAL);
 
+            iconLayout = new FrameLayout(context);
+            iconLayout.setBackground(iconBackground = new Background());
+
             iconView = new ImageView(context);
-            iconView.setScaleType(ImageView.ScaleType.CENTER);
-            iconView.setBackground(iconBackground = new Background());
+            iconView.setScaleType(ImageView.ScaleType.FIT_CENTER);
+            iconLayout.addView(iconView, LayoutHelper.createFrame(24, 24, Gravity.CENTER));
 
             textLayout = new LinearLayout(context);
             textLayout.setOrientation(VERTICAL);
@@ -1134,9 +1180,9 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
             if (LocaleController.isRTL) {
                 addView(valueView, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, Gravity.CENTER_VERTICAL, 20, 0, 0, 0));
                 addView(textLayout, LayoutHelper.createLinear(0, LayoutHelper.WRAP_CONTENT, 1, Gravity.CENTER_VERTICAL | Gravity.FILL_HORIZONTAL, 20, 0, 18, 0));
-                addView(iconView, LayoutHelper.createLinear(28, 28, Gravity.CENTER_VERTICAL | Gravity.RIGHT, 0, 0, 18, 0));
+                addView(iconLayout, LayoutHelper.createLinear(28, 28, Gravity.CENTER_VERTICAL | Gravity.RIGHT, 0, 0, 18, 0));
             } else {
-                addView(iconView, LayoutHelper.createLinear(28, 28, Gravity.CENTER_VERTICAL | Gravity.LEFT, 18, 0, 0, 0));
+                addView(iconLayout, LayoutHelper.createLinear(28, 28, Gravity.CENTER_VERTICAL | Gravity.LEFT, 18, 0, 0, 0));
                 addView(textLayout, LayoutHelper.createLinear(0, LayoutHelper.WRAP_CONTENT, 1, Gravity.CENTER_VERTICAL | Gravity.FILL_HORIZONTAL, 18, 0, 20, 0));
                 addView(valueView, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, Gravity.CENTER_VERTICAL, 0, 0, 20, 0));
             }
@@ -1159,7 +1205,7 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
             CharSequence subtitle,
             CharSequence value
         ) {
-            iconView.setVisibility(icon != 0 ? View.VISIBLE : View.GONE);
+            iconLayout.setVisibility(icon != 0 ? View.VISIBLE : View.GONE);
             titleView.setTranslationX(icon == 0 ? dp(2) : 0);
             subtitleView.setTranslationX(icon == 0 ? dp(2) : 0);
 
@@ -1263,6 +1309,16 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
                 item.text = title;
                 item.subtext = subtitle;
                 item.textValue = value;
+                item.longValue = ((long) iconColorBottom << 32) | (iconColorTop & 0xFFFFFFFFL);
+                return item;
+            }
+
+            public static UItem ofBot(TLRPC.TL_attachMenuBot attachMenuBot, int iconColorTop, int iconColorBottom, int icon) {
+                final UItem item = UItem.ofFactory(Factory.class);
+                item.id = Long.hashCode(attachMenuBot.bot_id);
+                item.object = attachMenuBot;
+                item.iconResId = icon;
+                item.text = attachMenuBot.short_name;
                 item.longValue = ((long) iconColorBottom << 32) | (iconColorTop & 0xFFFFFFFFL);
                 return item;
             }
@@ -1406,7 +1462,8 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
                 "Make Memory Dump",
                 BuildVars.DEBUG_PRIVATE_VERSION ? (SharedConfig.fastWallpaperDisabled ? "enable wallpaper shader" : "disable wallpaper shader") : null,
                 (SharedConfig.frameMetricsEnabled ? "hide frame metrics" : "show frame metrics"),
-                BuildVars.DEBUG_PRIVATE_VERSION ? (SharedConfig.shadowsInSections ? "disable shadows in settings" : "enable shadows in settings") : null
+                BuildVars.DEBUG_PRIVATE_VERSION ? (SharedConfig.shadowsInSections ? "disable shadows in settings" : "enable shadows in settings") : null,
+                BuildVars.DEBUG_PRIVATE_VERSION ? (SharedConfig.debugViewMetrics ? "disable debug view metrics" : "enable debug view metrics") : null,
         };
 
         builder.setItems(items, (dialog, which) -> {
@@ -1439,8 +1496,10 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
                 getMessagesStorage().clearSentMedia();
                 SharedConfig.setNoSoundHintShowed(false);
                 SharedPreferences.Editor editor = MessagesController.getGlobalMainSettings().edit();
-                editor.remove("archivehint").remove("proximityhint").remove("archivehint_l").remove("searchpostsnew").remove("speedhint").remove("gifhint").remove("reminderhint").remove("soundHint").remove("themehint").remove("bganimationhint").remove("filterhint").remove("n_0").remove("storyprvhint").remove("storyhint").remove("storyhint2").remove("storydualhint").remove("storysvddualhint").remove("stories_camera").remove("dualcam").remove("dualmatrix").remove("dual_available").remove("archivehint").remove("askNotificationsAfter").remove("askNotificationsDuration").remove("viewoncehint").remove("voicepausehint").remove("taptostorysoundhint").remove("nothanos").remove("voiceoncehint").remove("savedhint").remove("savedsearchhint").remove("savedsearchtaghint").remove("groupEmojiPackHintShown").remove("newppsms").remove("monetizationadshint").remove("seekSpeedHintShowed").remove("unsupport_video/av01").remove("channelgifthint").remove("statusgiftpage").remove("multistorieshint").remove("channelsuggesthint").remove("trimvoicehint").remove("taptostoryhighlighthint").remove("proxycheckstatusip").remove("callmiconstart").apply();
+                editor.remove("archivehint").remove("proximityhint").remove("archivehint_l").remove("searchpostsnew").remove("speedhint").remove("gifhint").remove("reminderhint").remove("soundHint").remove("themehint").remove("bganimationhint").remove("filterhint").remove("n_0").remove("storyprvhint").remove("storyhint").remove("storyhint2").remove("storydualhint").remove("storysvddualhint").remove("stories_camera").remove("dualcam").remove("dualmatrix").remove("dual_available").remove("archivehint").remove("askNotificationsAfter").remove("askNotificationsDuration").remove("viewoncehint").remove("voicepausehint").remove("taptostorysoundhint").remove("nothanos").remove("voiceoncehint").remove("savedhint").remove("savedsearchhint").remove("savedsearchtaghint").remove("newppsms").remove("monetizationadshint").remove("seekSpeedHintShowed").remove("unsupport_video/av01").remove("statusgiftpage").remove("multistorieshint").remove("trimvoicehint").remove("taptostoryhighlighthint").remove("proxycheckstatusip").remove("callmiconstart").remove("showchattagsinfo").remove("language_showed2").remove("aihintshown").remove("savedmsgschatshint").apply();
+                HintsController.resetAll();
                 MessagesController.getEmojiSettings(currentAccount).edit().remove("featured_hidden").remove("emoji_featured_hidden").commit();
+                MessagesController.getGlobalNotificationsSettings().edit().remove("disable_sharing_learn").remove("askedAboutFSILockscreen").apply();
                 SharedConfig.textSelectionHintShows = 0;
                 SharedConfig.lockRecordAudioVideoHint = 0;
                 SharedConfig.stickersReorderingHintUsed = false;
@@ -1710,6 +1769,9 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
             } else if (which == 40) {
                 final SharedPreferences prefs = ApplicationLoader.applicationContext.getSharedPreferences("mainconfig", Activity.MODE_PRIVATE);
                 prefs.edit().putBoolean("shadowsInSections", SharedConfig.shadowsInSections = !SharedConfig.shadowsInSections).apply();
+            } else if (which == 41) {
+                final SharedPreferences prefs = ApplicationLoader.applicationContext.getSharedPreferences("mainconfig", Activity.MODE_PRIVATE);
+                prefs.edit().putBoolean("debugViewMetrics", SharedConfig.debugViewMetrics = !SharedConfig.debugViewMetrics).apply();
             }
         });
         builder.setNegativeButton(getString(R.string.Cancel), null);
@@ -1854,7 +1916,7 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
                             src.renameTo(destFile);
                             final String oldKey = avatar.volume_id + "_" + avatar.local_id + "@90_90";
                             final String newKey = small.location.volume_id + "_" + small.location.local_id + "@90_90";
-                            ImageLoader.getInstance().replaceImageInCache(oldKey, newKey, ImageLocation.getForUserOrChat(user, ImageLocation.TYPE_SMALL), false);
+                            ImageLoader.getInstance().replaceImageInCache(oldKey, newKey, ImageLocation.getForUserOrChat(currentAccount, user, ImageLocation.TYPE_SMALL), false);
                         }
 
                         if (videoSize != null && videoPath != null) {
