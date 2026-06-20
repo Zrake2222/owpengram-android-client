@@ -5,8 +5,11 @@ import android.content.SharedPreferences;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
+import android.text.TextUtils;
+
 import org.telegram.messenger.ApplicationLoader;
 import org.telegram.messenger.FileLog;
+import org.telegram.messenger.MessagesController;
 import org.telegram.messenger.UserConfig;
 import org.telegram.tgnet.ConnectionsManager;
 
@@ -323,6 +326,57 @@ public class OwpengramServers {
                 OwpengramServer s = getServerForAccount(a);
                 if (s != null && s.isTelegram) return true;
             }
+        }
+        return false;
+    }
+
+    /**
+     * Self-hosted invite/username link routing (owpg scheme). Finds an activated
+     * account that owns the given link host, i.e. whose me_url_prefix host
+     * (MessagesController.linkPrefix) equals {@code host} AND whose server explicitly
+     * advertises owpengram=true in help.getAppConfig (so the official Telegram network
+     * and teamgram/other forks on a shared host are excluded). Prefers the currently
+     * selected account when it matches. Returns the account index, or -1 if none.
+     * Mirrors the desktop OwpengramHostForUrl / OwpengramAccountHost.
+     */
+    public static int findOwpengramAccountForHost(String host) {
+        if (TextUtils.isEmpty(host)) {
+            return -1;
+        }
+        host = host.toLowerCase();
+        // Prefer the active account so a link is opened on the account the user is on.
+        int selected = UserConfig.selectedAccount;
+        if (accountOwnsHost(selected, host)) {
+            return selected;
+        }
+        for (int a = 0; a < UserConfig.MAX_ACCOUNT_COUNT; a++) {
+            if (a != selected && accountOwnsHost(a, host)) {
+                return a;
+            }
+        }
+        return -1;
+    }
+
+    private static boolean accountOwnsHost(int accountNum, String host) {
+        if (!UserConfig.getInstance(accountNum).isClientActivated()) {
+            return false;
+        }
+        // owpg links never target the official Telegram network (t.me handling applies there).
+        if (serverIsOfficialTelegram(accountNum)) {
+            return false;
+        }
+        MessagesController controller = MessagesController.getInstance(accountNum);
+        // Primary: the host matches this account's me_url_prefix (link prefix).
+        String prefix = controller.linkPrefix;
+        if (prefix != null && host.equalsIgnoreCase(prefix)) {
+            return true;
+        }
+        // Fallback: the host matches the account's actual server endpoint host. Covers
+        // owpg://<server-ip-or-domain>/... even before me_url_prefix / the appConfig
+        // owpengram marker have been refetched (e.g. after the admin changed the prefix).
+        OwpengramServer server = getServerForAccount(accountNum);
+        if (server != null && server.host != null && host.equalsIgnoreCase(server.host)) {
+            return true;
         }
         return false;
     }

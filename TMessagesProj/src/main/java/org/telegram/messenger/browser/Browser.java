@@ -35,6 +35,7 @@ import org.telegram.messenger.ShareBroadcastReceiver;
 import org.telegram.messenger.SharedConfig;
 import org.telegram.messenger.UserConfig;
 import org.telegram.messenger.Utilities;
+import org.telegram.owpengram.OwpengramServers;
 import org.telegram.messenger.support.customtabs.CustomTabsCallback;
 import org.telegram.messenger.support.customtabs.CustomTabsClient;
 import org.telegram.messenger.support.customtabs.CustomTabsIntent;
@@ -698,6 +699,15 @@ public class Browser {
             host = host != null ? host.toLowerCase() : "";
         }
 
+        // OwpenGram self-hosted invite/username link: a host matching an OwpenGram
+        // account's me_url_prefix is internal — rewrite to t.me so the checks below
+        // route it into the app instead of opening a browser.
+        if (OwpengramServers.findOwpengramAccountForHost(host) >= 0) {
+            uri = Uri.parse("https://t.me" + (TextUtils.isEmpty(uri.getPath()) ? "/" : uri.getPath()) + (TextUtils.isEmpty(uri.getQuery()) ? "" : "?" + uri.getQuery()));
+            host = uri.getHost();
+            host = host != null ? host.toLowerCase() : "";
+        }
+
         if ("ton".equals(uri.getScheme())) {
             try {
                 Intent viewIntent = new Intent(Intent.ACTION_VIEW, uri);
@@ -710,6 +720,9 @@ public class Browser {
             }
             return true;
         } else if ("tg".equals(uri.getScheme())) {
+            return true;
+        } else if ("owpg".equals(uri.getScheme())) {
+            // OwpenGram self-hosted scheme — always internal (routed to the owning server).
             return true;
         } else if ("telegram.dog".equals(host)) {
             String path = uri.getPath();

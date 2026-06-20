@@ -1280,6 +1280,49 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
         return false;
     }
 
+    /**
+     * Routes a self-hosted OwpenGram invite/username link to the account that owns its
+     * host. If that account is already active, proceed; otherwise offer to switch to it
+     * and re-handle the link. Mirrors routeTelegramLinkToTelegramAccount.
+     */
+    private boolean routeOwpengramLinkToOwpengramAccount(int owpengramAccount, Intent intent, int[] intentAccount, Browser.Progress progress) {
+        if (owpengramAccount < 0 || owpengramAccount == intentAccount[0]) {
+            return true; // already on the owning account
+        }
+        if (progress != null) {
+            progress.end();
+        }
+        final OwpengramServer server = OwpengramServers.getServerForAccount(owpengramAccount);
+        final String name = (server != null && server.name != null) ? server.name : "OwpenGram";
+        final Intent reintent = new Intent(intent);
+        reintent.putExtra("currentAccount", owpengramAccount);
+        try {
+            AlertDialog.Builder b = new AlertDialog.Builder(this);
+            b.setTitle(LocaleController.getString(R.string.AppName));
+            b.setMessage("This link belongs to your " + name + " account. Switch to it to open the link?");
+            b.setPositiveButton(LocaleController.getString(R.string.OK), (d, w) -> {
+                switchToAccount(owpengramAccount, true);
+                AndroidUtilities.runOnUIThread(() -> handleIntent(reintent, false, false, false, null, true, true), 200);
+            });
+            b.setNegativeButton(LocaleController.getString(R.string.Cancel), null);
+            b.show();
+        } catch (Exception ignore) {
+        }
+        return false;
+    }
+
+    /** Shown when an owpg:// link targets a server the user has no account on. */
+    private void showOwpengramOtherServerDialog(String host) {
+        try {
+            AlertDialog.Builder b = new AlertDialog.Builder(this);
+            b.setTitle(LocaleController.getString(R.string.AppName));
+            b.setMessage("This link belongs to a server you are not connected to" + (TextUtils.isEmpty(host) ? "." : (": " + host)));
+            b.setPositiveButton(LocaleController.getString(R.string.OK), null);
+            b.show();
+        } catch (Exception ignore) {
+        }
+    }
+
     private void showNeedTelegramAccountDialog() {
         try {
             AlertDialog.Builder b = new AlertDialog.Builder(this);
@@ -2022,18 +2065,51 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
                                         progress.end();
                                     }
                                     return false;
+                                case "owpg": {
+                                    // OwpenGram self-hosted scheme: owpg://<host>/<rest>. The host
+                                    // identifies which server (me_url_prefix) the link belongs to.
+                                    // Reinterpret as https://<host>/<rest> and fall through to the
+                                    // http/https handler, which routes it to the owning account.
+                                    String owpgHost = data.getHost() != null ? data.getHost().toLowerCase() : "";
+                                    if (OwpengramServers.findOwpengramAccountForHost(owpgHost) < 0) {
+                                        // Not logged in to any account on this server.
+                                        if (progress != null) {
+                                            progress.end();
+                                        }
+                                        showOwpengramOtherServerDialog(owpgHost);
+                                        intent.setAction(null);
+                                        return false;
+                                    }
+                                    data = Uri.parse("https://" + owpgHost
+                                            + (TextUtils.isEmpty(data.getPath()) ? "/" : data.getPath())
+                                            + (TextUtils.isEmpty(data.getQuery()) ? "" : "?" + data.getQuery()));
+                                    // fall through to case "http"/"https"
+                                }
                                 case "http":
                                 case "https": {
                                     String host = data.getHost().toLowerCase();
                                     Matcher prefixMatcher = PREFIX_T_ME_PATTERN.matcher(host);
                                     boolean isPrefix = prefixMatcher.find();
-                                    if (host.equals("telegram.me") || host.equals("t.me") || host.equals("telegram.dog") || isPrefix) {
-                                        // t.me links require a Telegram-official account.
-                                        if (!routeTelegramLinkToTelegramAccount(intent, intentAccount, progress)) {
-                                            return false;
-                                        }
-                                        if (isPrefix) {
-                                            data = Uri.parse("https://t.me/" + prefixMatcher.group(1) + (TextUtils.isEmpty(data.getPath()) ? "" : data.getPath()) + (TextUtils.isEmpty(data.getQuery()) ? "" : "?" + data.getQuery()));
+                                    // OwpenGram self-hosted invite/username link: the host matches an
+                                    // account's me_url_prefix and that server advertises owpengram=true.
+                                    int owpengramAccount = OwpengramServers.findOwpengramAccountForHost(host);
+                                    boolean isOwpengram = owpengramAccount >= 0;
+                                    if (host.equals("telegram.me") || host.equals("t.me") || host.equals("telegram.dog") || isPrefix || isOwpengram) {
+                                        if (isOwpengram) {
+                                            // Route on the OwpenGram account that owns this host (switch if needed).
+                                            if (!routeOwpengramLinkToOwpengramAccount(owpengramAccount, intent, intentAccount, progress)) {
+                                                return false;
+                                            }
+                                            // Rewrite host -> t.me so the shared t.me path parser handles /+hash, /username, etc.
+                                            data = Uri.parse("https://t.me" + (TextUtils.isEmpty(data.getPath()) ? "/" : data.getPath()) + (TextUtils.isEmpty(data.getQuery()) ? "" : "?" + data.getQuery()));
+                                        } else {
+                                            // t.me links require a Telegram-official account.
+                                            if (!routeTelegramLinkToTelegramAccount(intent, intentAccount, progress)) {
+                                                return false;
+                                            }
+                                            if (isPrefix) {
+                                                data = Uri.parse("https://t.me/" + prefixMatcher.group(1) + (TextUtils.isEmpty(data.getPath()) ? "" : data.getPath()) + (TextUtils.isEmpty(data.getQuery()) ? "" : "?" + data.getQuery()));
+                                            }
                                         }
                                         String path = data.getPath();
                                         if (path != null && path.length() > 1) {

@@ -492,6 +492,11 @@ public class MessagesController extends BaseController implements NotificationCe
 
     public boolean enableJoined;
     public String linkPrefix;
+    // OwpenGram: the server's help.getAppConfig advertises owpengram=true. Used to
+    // treat links on this account's linkPrefix host as internal owpg links (not the
+    // official Telegram network, and not teamgram/other forks). Mirrors the desktop
+    // OwpengramAccountHost gate on appConfig().get<bool>("owpengram").
+    public boolean owpengramServer;
     public int maxGroupCount;
     public int maxBroadcastCount = 100;
     public int maxMegagroupCount;
@@ -1541,6 +1546,7 @@ public class MessagesController extends BaseController implements NotificationCe
         maxEditTime = mainPreferences.getInt("maxEditTime", 3600);
         ratingDecay = mainPreferences.getInt("ratingDecay", 2419200);
         linkPrefix = mainPreferences.getString("linkPrefix", "t.me");
+        owpengramServer = mainPreferences.getBoolean("owpengramServer", false);
         callReceiveTimeout = mainPreferences.getInt("callReceiveTimeout", 20000);
         callRingTimeout = mainPreferences.getInt("callRingTimeout", 90000);
         callConnectTimeout = mainPreferences.getInt("callConnectTimeout", 30000);
@@ -2625,12 +2631,25 @@ public class MessagesController extends BaseController implements NotificationCe
         TLRPC.TL_jsonObject liteAppOptions = null;
         int transcribeAudioTrialWeeklyNumber = 0;
         int transcribeAudioTrialCooldownUntil = 0;
+        boolean sawOwpengram = false;
 
         changed = config.apply(editor, object);
 
         for (int a = 0, N = object.value.size(); a < N; a++) {
             TLRPC.TL_jsonObjectValue value = object.value.get(a);
             switch (value.key) {
+                case "owpengram": {
+                    // OwpenGram self-hosted server marker (true/"true"). See owpengramServer field.
+                    sawOwpengram = true;
+                    boolean val = (value.value instanceof TLRPC.TL_jsonBool && ((TLRPC.TL_jsonBool) value.value).value)
+                            || (value.value instanceof TLRPC.TL_jsonString && "true".equalsIgnoreCase(((TLRPC.TL_jsonString) value.value).value));
+                    if (val != owpengramServer) {
+                        owpengramServer = val;
+                        editor.putBoolean("owpengramServer", owpengramServer);
+                        changed = true;
+                    }
+                    break;
+                }
                 case "boosts_per_sent_gift": {
                     if (value.value instanceof TLRPC.TL_jsonNumber) {
                         long val = (long) ((TLRPC.TL_jsonNumber) value.value).value;
@@ -4980,6 +4999,13 @@ public class MessagesController extends BaseController implements NotificationCe
                     break;
                 }
             }
+        }
+
+        // Clear the OwpenGram marker if the server stopped advertising it.
+        if (!sawOwpengram && owpengramServer) {
+            owpengramServer = false;
+            editor.putBoolean("owpengramServer", false);
+            changed = true;
         }
 
         if (transcribeAudioTrialWeeklyNumber != this.transcribeAudioTrialWeeklyNumber) {
