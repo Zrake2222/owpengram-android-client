@@ -2485,6 +2485,8 @@
     <string name="NotificationsService">Keep-Alive Service</string>
     <string name="NotificationsServiceInfo">Relaunch app when shut down. Enable for reliable notifications.</string>
     <string name="NotificationsServiceConnection">Background Connection</string>
+    <string name="BatteryOptimizationTitle">Allow background activity?</string>
+    <string name="BatteryOptimizationMessage">To receive messages reliably in the background, OwpenGram needs an exception from battery optimization. Without it, the system may delay or block notifications.</string>
     <string name="NotificationsServiceConnectionInfo">Keep a low impact background connection to OwpenGram for reliable notifications.</string>
     <string name="SortBy">Sort By</string>
     <string name="ImportContacts">Import Contacts</string>

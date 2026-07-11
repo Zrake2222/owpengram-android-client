@@ -7162,6 +7162,7 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
             ApplicationLoader.mainInterfacePausedStageQueueTime = System.currentTimeMillis();
         });
         checkFreeDiscSpace(0);
+        checkBatteryOptimization();
         MediaController.checkGallery();
         onPasscodeResume();
         if (passcodeDialog == null || passcodeDialog.passcodeView.getVisibility() != View.VISIBLE) {
@@ -8056,6 +8057,50 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
         loadingThemeInfo = null;
         loadingThemeFileName = null;
         loadingTheme = null;
+    }
+
+    // Without Firebase, the app relies on its own foreground keep-alive service to stay
+    // connected in the background — Doze/App Standby can still throttle it unless the
+    // user grants an ignore-battery-optimizations exemption. Asked once, ever, right
+    // after the account is activated (not before login); the answer (either way) is
+    // remembered so we never nag again, regardless of what the user picked.
+    private void checkBatteryOptimization() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
+            return;
+        }
+        if (!UserConfig.getInstance(currentAccount).isClientActivated()) {
+            return;
+        }
+        SharedPreferences preferences = MessagesController.getGlobalMainSettings();
+        if (preferences.getBoolean("batteryOptimizationAsked", false)) {
+            return;
+        }
+        preferences.edit().putBoolean("batteryOptimizationAsked", true).commit();
+        try {
+            PowerManager powerManager = (PowerManager) getSystemService(Context.POWER_SERVICE);
+            if (powerManager != null && powerManager.isIgnoringBatteryOptimizations(getPackageName())) {
+                return;
+            }
+        } catch (Throwable ignore) {
+            return;
+        }
+        try {
+            new AlertDialog.Builder(this)
+                    .setTitle(getString(R.string.BatteryOptimizationTitle))
+                    .setMessage(getString(R.string.BatteryOptimizationMessage))
+                    .setPositiveButton(getString(R.string.Allow), (dialog, which) -> {
+                        try {
+                            Intent intent = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:" + getPackageName()));
+                            startActivity(intent);
+                        } catch (Throwable e) {
+                            FileLog.e(e);
+                        }
+                    })
+                    .setNegativeButton(getString(R.string.Cancel), null)
+                    .show();
+        } catch (Throwable ignore) {
+
+        }
     }
 
     private boolean checkFreeDiscSpaceShown;
