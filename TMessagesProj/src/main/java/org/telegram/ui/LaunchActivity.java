@@ -38,6 +38,7 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Parcelable;
+import android.os.PowerManager;
 import android.os.StatFs;
 import android.os.StrictMode;
 import android.os.SystemClock;

@@ -208,17 +208,26 @@ public class OwpengramServers {
 
     /**
      * Whether the account's current server exposes Telegram Premium / Stars /
-     * Business features. Only the real Telegram and Teamgram backends implement
-     * them server-side; OwpenGram and custom single-servers do not, so the whole
-     * Premium settings section is hidden there. Mirrors the desktop client, which
-     * gates this via the server's appConfig (premiumPossible).
+     * Business features. Telegram and Teamgram always do. Any other (custom
+     * self-hosted, e.g. gramsrv) server is trusted based on its own appConfig
+     * contract — help.getAppConfig `premium_purchase_blocked` / `stars_purchase_blocked`
+     * (MessagesController.premiumLocked / starsLocked, refreshed on every appConfig
+     * fetch) — the same signal the desktop client relies on via session->premiumPossible(),
+     * which has no separate per-server allowlist. A server that doesn't implement these
+     * features server-side is expected to send the blocked flags (as the old
+     * owpengram-server did); one that does (gramsrv) is not unconditionally hidden here
+     * just for not being a hardcoded preset.
      */
     public static boolean serverSupportsPremium(int accountNum) {
         OwpengramServer s = getServerForAccount(accountNum);
         if (s == null) {
             return false;
         }
-        return s.isTelegram || ID_TEAMGRAM.equals(s.id);
+        if (s.isTelegram || ID_TEAMGRAM.equals(s.id)) {
+            return true;
+        }
+        MessagesController mc = MessagesController.getInstance(accountNum);
+        return !mc.premiumLocked || !mc.starsLocked;
     }
 
     /**
