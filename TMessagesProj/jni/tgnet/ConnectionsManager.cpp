@@ -1889,6 +1889,17 @@ void ConnectionsManager::applyServerConfig(std::string host, uint32_t port, bool
             // /custom emoji that live on DC3/4/5 cannot be downloaded. We seed BOTH
             // the regular and the download/media address with the DC's IP so a media
             // connection always has an endpoint even before getConfig responds.
+            //
+            // Exception: if the account was previously on a locked single-server
+            // backend (owpengram/Teamgram/custom — see the else branch below),
+            // every dc_id 1..5 was force-mapped onto that one non-Telegram host via
+            // replaceAddresses. ADD would leave those poisoned entries in place
+            // alongside the new Telegram address, so DC1/3/4/5 could still silently
+            // resolve to the old server while the client believes it's on Telegram
+            // (this was the actual cause of "can't log into a Telegram account after
+            // using a custom server" — AuthKey/RSA and empty dc_options errors).
+            // Use the same REPLACE semantics the single-server branch uses instead.
+            bool wasLocked = serverOptionsLocked;
             serverOptionsLocked = false;
             for (int dcId = 1; dcId <= 5; dcId++) {
                 Datacenter *dc = getDatacenterWithId(dcId);
@@ -1896,8 +1907,17 @@ void ConnectionsManager::applyServerConfig(std::string host, uint32_t port, bool
                     dc = new Datacenter(instanceNum, dcId);
                     datacenters[dcId] = dc;
                 }
-                dc->addAddressAndPort(prod[dcId - 1].ip, prod[dcId - 1].port, 0, "");
-                dc->addAddressAndPort(prod[dcId - 1].ip, prod[dcId - 1].port, TcpAddressFlagDownload, "");
+                if (resetKeys && wasLocked) {
+                    std::vector<TcpAddress> addrs;
+                    addrs.emplace_back(prod[dcId - 1].ip, prod[dcId - 1].port, 0, "");
+                    std::vector<TcpAddress> downloadAddrs;
+                    downloadAddrs.emplace_back(prod[dcId - 1].ip, prod[dcId - 1].port, TcpAddressFlagDownload, "");
+                    dc->replaceAddresses(addrs, 0);
+                    dc->replaceAddresses(downloadAddrs, TcpAddressFlagDownload);
+                } else {
+                    dc->addAddressAndPort(prod[dcId - 1].ip, prod[dcId - 1].port, 0, "");
+                    dc->addAddressAndPort(prod[dcId - 1].ip, prod[dcId - 1].port, TcpAddressFlagDownload, "");
+                }
             }
             if (resetKeys) {
                 // Fresh switch to Telegram: drop stale keys/sessions, home on DC2.
