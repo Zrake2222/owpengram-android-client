@@ -259,7 +259,14 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
             VIEW_CODE_FRAGMENT_SMS = 15,
             VIEW_CODE_WORD = 16,
             VIEW_CODE_PHRASE = 17,
-            VIEW_PAY = 18;
+            VIEW_PAY = 18,
+            // Real, unmodified PhoneView shown when the user confirms
+            // EmailSignupView's "log in with phone number instead" link — a
+            // separate slot (not a reused VIEW_PHONE_INPUT) so it can just be
+            // a second plain PhoneView instance, reusing all of its existing
+            // country-picker/SIM-permission logic unchanged instead of
+            // duplicating any of it.
+            VIEW_PHONE_FALLBACK = 19;
 
     public final static int COUNTRY_STATE_NOT_SET_OR_VALID = 0,
             COUNTRY_STATE_EMPTY = 1,
@@ -307,7 +314,8 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
             VIEW_CODE_FRAGMENT_SMS,
             VIEW_CODE_WORD,
             VIEW_CODE_PHRASE,
-            VIEW_PAY
+            VIEW_PAY,
+            VIEW_PHONE_FALLBACK
     })
     private @interface ViewNumber {}
 
@@ -326,7 +334,7 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
     // createView's VIEW_PHONE_INPUT slot can be given an EmailSignupView
     // instead of the normal PhoneView. See EmailSignupView below.
     private boolean emailSignupEnabled;
-    private final SlideView[] views = new SlideView[19];
+    private final SlideView[] views = new SlideView[20];
     private CustomPhoneKeyboardView keyboardView;
     private ValueAnimator keyboardAnimator;
     private boolean paid;
@@ -679,6 +687,7 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
         keyboardLinearLayout.addView(keyboardView, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, CustomPhoneKeyboardView.KEYBOARD_HEIGHT_DP));
 
         views[VIEW_PHONE_INPUT] = (emailSignupEnabled && activityMode == MODE_LOGIN) ? new EmailSignupView(context) : new PhoneView(context);
+        views[VIEW_PHONE_FALLBACK] = new PhoneView(context);
         views[VIEW_CODE_MESSAGE] = new LoginActivitySmsView(context, AUTH_TYPE_MESSAGE);
         views[VIEW_CODE_SMS] = new LoginActivitySmsView(context, AUTH_TYPE_SMS);
         views[VIEW_CODE_FLASH_CALL] = new LoginActivitySmsView(context, AUTH_TYPE_FLASH_CALL);
@@ -1512,7 +1521,7 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
     }
 
     public void setPage(@ViewNumber int page, boolean animated, Bundle params, boolean back) {
-        boolean needFloatingButton = page == VIEW_PHONE_INPUT || page == VIEW_REGISTER || page == VIEW_PASSWORD ||
+        boolean needFloatingButton = page == VIEW_PHONE_INPUT || page == VIEW_PHONE_FALLBACK || page == VIEW_REGISTER || page == VIEW_PASSWORD ||
                 page == VIEW_NEW_PASSWORD_STAGE_1 || page == VIEW_NEW_PASSWORD_STAGE_2 || page == VIEW_ADD_EMAIL || page == VIEW_CODE_PHRASE || page == VIEW_CODE_WORD;
         if (page == currentViewNum) {
             animated = false;
@@ -1984,6 +1993,7 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
         private EditTextBoldCursor emailField;
         private TextView titleView;
         private TextView subtitleView;
+        private TextView phoneFallbackView;
         private boolean nextPressed;
 
         public EmailSignupView(Context context) {
@@ -2033,6 +2043,26 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
             });
 
             addView(emailOutlineView, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 58, 16, 24, 16, 14));
+
+            phoneFallbackView = new TextView(context);
+            phoneFallbackView.setText(getString(R.string.EmailSignupPhoneFallback));
+            phoneFallbackView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
+            phoneFallbackView.setGravity(Gravity.CENTER);
+            phoneFallbackView.setPadding(dp(16), dp(16), dp(16), dp(16));
+            phoneFallbackView.setOnClickListener(v -> confirmPhoneFallback());
+            addView(phoneFallbackView, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, Gravity.CENTER_HORIZONTAL, 0, 8, 0, 0));
+        }
+
+        private void confirmPhoneFallback() {
+            if (getParentActivity() == null) {
+                return;
+            }
+            new AlertDialog.Builder(getParentActivity())
+                    .setTitle(getString(R.string.EmailSignupPhoneFallbackTitle))
+                    .setMessage(getString(R.string.EmailSignupPhoneFallbackMessage))
+                    .setPositiveButton(getString(R.string.EmailSignupPhoneFallbackButton), (dialog, which) -> setPage(VIEW_PHONE_FALLBACK, true, null, false))
+                    .setNegativeButton(getString(R.string.Cancel), null)
+                    .show();
         }
 
         @Override
@@ -2040,6 +2070,7 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
             titleView.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText));
             subtitleView.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText6));
             emailField.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText));
+            phoneFallbackView.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlueText4));
             emailOutlineView.invalidate();
         }
 

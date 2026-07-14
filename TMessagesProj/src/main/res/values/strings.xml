@@ -3533,6 +3533,10 @@
     <string name="EmailSignupSubtitle">You will receive OwpenGram login codes via email and not SMS. Please enter an email address to which you have access.</string>
     <string name="EmailSignupPlaceholder">Enter Login Email</string>
     <string name="EmailSignupInvalid">Please enter a valid email address.</string>
+    <string name="EmailSignupPhoneFallback">Log in with phone number instead</string>
+    <string name="EmailSignupPhoneFallbackTitle">Log in with phone number</string>
+    <string name="EmailSignupPhoneFallbackMessage">Even if you log in with a phone number, you\'ll still need to link an email to your account right after — this server cannot deliver a real SMS code.\n\nUsing your real phone number here is not recommended for privacy.\n\nOnly use this if you already had an account on this server before email sign-up was turned on.</string>
+    <string name="EmailSignupPhoneFallbackButton">Use phone number</string>
     <string name="VerificationCodeSubtitle">Please check your email %1$s (don\'t forget the spam folder) and enter the code we just sent you.</string>
     <string name="CheckYourEmail">Check Your Email</string>
     <string name="CheckYourEmailSubtitle">Please enter the code we have sent to your email %1$s.</string>
