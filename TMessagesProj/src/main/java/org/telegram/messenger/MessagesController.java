@@ -728,6 +728,7 @@ public class MessagesController extends BaseController implements NotificationCe
     public boolean premiumLocked;
     public int transcribeButtonPressed;
     public boolean starsLocked;
+    public boolean emailSignupEnabled;
 
     public boolean starsPurchaseAvailable() {
         return !starsLocked;
@@ -1638,6 +1639,7 @@ public class MessagesController extends BaseController implements NotificationCe
         premiumBotUsername = mainPreferences.getString("premiumBotUsername", null);
         premiumLocked = mainPreferences.getBoolean("premiumLocked", false);
         starsLocked = mainPreferences.getBoolean("starsLocked", true);
+        emailSignupEnabled = mainPreferences.getBoolean("emailSignupEnabled", false);
         transcribeButtonPressed = mainPreferences.getInt("transcribeButtonPressed", 0);
         forumUpgradeParticipantsMin = mainPreferences.getInt("forumUpgradeParticipantsMin", 200);
         topicsPinnedLimit = mainPreferences.getInt("topicsPinnedLimit", 3);
@@ -2847,6 +2849,16 @@ public class MessagesController extends BaseController implements NotificationCe
                         if (starsLocked != ((TLRPC.TL_jsonBool) value.value).value) {
                             starsLocked = ((TLRPC.TL_jsonBool) value.value).value;
                             editor.putBoolean("starsLocked", starsLocked);
+                            changed = true;
+                        }
+                    }
+                    break;
+                }
+                case "email_signup_enabled": {
+                    if (value.value instanceof TLRPC.TL_jsonBool) {
+                        if (emailSignupEnabled != ((TLRPC.TL_jsonBool) value.value).value) {
+                            emailSignupEnabled = ((TLRPC.TL_jsonBool) value.value).value;
+                            editor.putBoolean("emailSignupEnabled", emailSignupEnabled);
                             changed = true;
                         }
                     }
@@ -5576,6 +5588,7 @@ public class MessagesController extends BaseController implements NotificationCe
         showAnnualPerMonth = false;
         canEditFactcheck = false;
         starsLocked = true;
+        emailSignupEnabled = false;
         factcheckLengthLimit = 1024;
         videoIgnoreAltDocuments = false;
         freezeSinceDate = 0L;

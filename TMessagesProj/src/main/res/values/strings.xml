@@ -2583,6 +2583,8 @@
     <string name="PhoneNumberAlert">Users will see your new number if they have it in their address book or your privacy settings allow them to see it. You can modify this in Settings &gt; Privacy and Security &gt; Phone number.</string>
     <string name="PhoneNumberChange2">Change Number</string>
     <string name="PhoneNumberChangeTitle">Change number</string>
+    <string name="PhoneNumberChangeNotSupportedTitle">Not supported</string>
+    <string name="PhoneNumberChangeNotSupported">This server uses email as your account\'s identity instead of a phone number, so changing the phone number isn\'t supported here.</string>
     <string name="PhoneNumberKeepButton">Keep %1$s</string>
     <string name="ChangePhoneNewNumber">New Number</string>
     <string name="ChangePhoneHelp">We will send an SMS with a confirmation code to your new number.</string>
@@ -3527,6 +3529,10 @@
     <string name="AddEmailTitle">Add Email</string>
     <string name="AddEmailSubtitle">Please enter your valid email address to protect your account.</string>
     <string name="EnterNewEmail">Enter New Email</string>
+    <string name="EmailSignupTitle">Choose a login email</string>
+    <string name="EmailSignupSubtitle">You will receive OwpenGram login codes via email and not SMS. Please enter an email address to which you have access.</string>
+    <string name="EmailSignupPlaceholder">Enter Login Email</string>
+    <string name="EmailSignupInvalid">Please enter a valid email address.</string>
     <string name="VerificationCodeSubtitle">Please check your email %1$s (don\'t forget the spam folder) and enter the code we just sent you.</string>
     <string name="CheckYourEmail">Check Your Email</string>
     <string name="CheckYourEmailSubtitle">Please enter the code we have sent to your email %1$s.</string>

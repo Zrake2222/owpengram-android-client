@@ -241,6 +241,19 @@ public class OwpengramServers {
     }
 
     /**
+     * Whether the account's current server uses email as the account identity
+     * instead of a real phone number (help.getAppConfig `email_signup_enabled`,
+     * MessagesController.emailSignupEnabled, refreshed on every appConfig
+     * fetch — same mechanism as serverSupportsPremium above). Such a server has
+     * no real SMS delivery, so changing to an arbitrary phone number is
+     * server-side forbidden; used to pre-empt that with a clear client-side
+     * message instead of a confusing RPC error.
+     */
+    public static boolean serverHasEmailSignup(int accountNum) {
+        return MessagesController.getInstance(accountNum).emailSignupEnabled;
+    }
+
+    /**
      * True when two account slots target the same server. Used so the duplicate
      * login check (same phone / same user id) only triggers within one server —
      * the same phone number on a different server is a different account.

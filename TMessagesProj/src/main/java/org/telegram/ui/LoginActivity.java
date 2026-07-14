@@ -144,6 +144,7 @@ import org.telegram.messenger.SRPHelper;
 import org.telegram.messenger.SharedConfig;
 import org.telegram.messenger.UserConfig;
 import org.telegram.messenger.Utilities;
+import org.telegram.owpengram.EmailSignupPhone;
 import org.telegram.owpengram.OwpengramServers;
 import org.telegram.tgnet.ConnectionsManager;
 import org.telegram.tgnet.RequestDelegate;
@@ -319,6 +320,12 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
 
     @ViewNumber
     private int currentViewNum;
+    // Set by ServerSelectFragment (via setEmailSignupEnabled) right after it
+    // learns the chosen server advertises email_signup_enabled=true in its
+    // help.getAppConfig — before this activity's view is created, so
+    // createView's VIEW_PHONE_INPUT slot can be given an EmailSignupView
+    // instead of the normal PhoneView. See EmailSignupView below.
+    private boolean emailSignupEnabled;
     private final SlideView[] views = new SlideView[19];
     private CustomPhoneKeyboardView keyboardView;
     private ValueAnimator keyboardAnimator;
@@ -503,6 +510,11 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
         return this;
     }
 
+    public LoginActivity setEmailSignupEnabled(boolean enabled) {
+        emailSignupEnabled = enabled;
+        return this;
+    }
+
     private boolean isInCancelAccountDeletionMode() {
         return activityMode == MODE_CANCEL_ACCOUNT_DELETION;
     }
@@ -666,7 +678,7 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
         keyboardView.setViewToFindFocus(slideViewsContainer);
         keyboardLinearLayout.addView(keyboardView, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, CustomPhoneKeyboardView.KEYBOARD_HEIGHT_DP));
 
-        views[VIEW_PHONE_INPUT] = new PhoneView(context);
+        views[VIEW_PHONE_INPUT] = (emailSignupEnabled && activityMode == MODE_LOGIN) ? new EmailSignupView(context) : new PhoneView(context);
         views[VIEW_CODE_MESSAGE] = new LoginActivitySmsView(context, AUTH_TYPE_MESSAGE);
         views[VIEW_CODE_SMS] = new LoginActivitySmsView(context, AUTH_TYPE_SMS);
         views[VIEW_CODE_FLASH_CALL] = new LoginActivitySmsView(context, AUTH_TYPE_FLASH_CALL);
@@ -1953,6 +1965,154 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
     }
 
     private TLRPC.TL_help_termsOfService currentTermsOfService;
+
+    /**
+     * Shown instead of PhoneView (same VIEW_PHONE_INPUT slot — see createView)
+     * when the current server advertises email_signup_enabled=true: the user
+     * types an email address instead of a phone number. The email is locally
+     * encoded into a synthetic "888"-prefixed phone number
+     * (EmailSignupPhone.encode) and fed into the exact same auth.sendCode
+     * request PhoneView makes, so every downstream screen (VIEW_CODE_EMAIL,
+     * VIEW_REGISTER, ...) needs no changes at all — the server happens to
+     * reply with the same auth.sentCodeTypeEmailCode the older "Login Email"
+     * feature already uses, and that response has never carried the raw
+     * phone/email string in anything user-visible on this client to begin
+     * with (see fillNextCodeParams / LoginActivityEmailCodeView).
+     */
+    public class EmailSignupView extends SlideView {
+        private OutlineTextContainerView emailOutlineView;
+        private EditTextBoldCursor emailField;
+        private TextView titleView;
+        private TextView subtitleView;
+        private boolean nextPressed;
+
+        public EmailSignupView(Context context) {
+            super(context);
+
+            setOrientation(VERTICAL);
+            setGravity(Gravity.CENTER);
+
+            titleView = new TextView(context);
+            titleView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 18);
+            titleView.setTypeface(AndroidUtilities.bold());
+            titleView.setText(getString(R.string.EmailSignupTitle));
+            titleView.setGravity(Gravity.CENTER);
+            titleView.setLineSpacing(dp(2), 1.0f);
+            addView(titleView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.CENTER_HORIZONTAL, 32, 0, 32, 0));
+
+            subtitleView = new TextView(context);
+            subtitleView.setText(getString(R.string.EmailSignupSubtitle));
+            subtitleView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
+            subtitleView.setGravity(Gravity.CENTER);
+            subtitleView.setLineSpacing(dp(2), 1.0f);
+            addView(subtitleView, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.CENTER_HORIZONTAL, 32, 8, 32, 0));
+
+            emailOutlineView = new OutlineTextContainerView(context);
+            emailOutlineView.setText(getString(R.string.EmailSignupPlaceholder));
+
+            emailField = new EditTextBoldCursor(context);
+            emailField.setCursorSize(dp(20));
+            emailField.setCursorWidth(1.5f);
+            emailField.setImeOptions(EditorInfo.IME_ACTION_NEXT | EditorInfo.IME_FLAG_NO_EXTRACT_UI);
+            emailField.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 17);
+            emailField.setMaxLines(1);
+            emailField.setInputType(EditorInfo.TYPE_CLASS_TEXT | EditorInfo.TYPE_TEXT_VARIATION_EMAIL_ADDRESS);
+            emailField.setOnFocusChangeListener((v, hasFocus) -> emailOutlineView.animateSelection(hasFocus ? 1f : 0f));
+            emailField.setBackground(null);
+            emailField.setPadding(dp(16), dp(16), dp(16), dp(16));
+
+            emailOutlineView.attachEditText(emailField);
+            emailOutlineView.addView(emailField, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.TOP));
+
+            emailField.setOnEditorActionListener((textView, i, keyEvent) -> {
+                if (i == EditorInfo.IME_ACTION_NEXT) {
+                    onNextPressed(null);
+                    return true;
+                }
+                return false;
+            });
+
+            addView(emailOutlineView, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 58, 16, 24, 16, 14));
+        }
+
+        @Override
+        public void updateColors() {
+            titleView.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText));
+            subtitleView.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText6));
+            emailField.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText));
+            emailOutlineView.invalidate();
+        }
+
+        @Override
+        public String getHeaderName() {
+            return getString(R.string.EmailSignupTitle);
+        }
+
+        @Override
+        public void onShow() {
+            super.onShow();
+            if (emailField != null) {
+                emailField.requestFocus();
+                showKeyboard(emailField);
+            }
+        }
+
+        @Override
+        public void onNextPressed(String code) {
+            if (nextPressed) {
+                return;
+            }
+            String email = emailField.getText().toString();
+            String encoded = EmailSignupPhone.encode(email);
+            if (encoded == null) {
+                onFieldError(emailOutlineView, false);
+                needShowAlert(getString(R.string.AppName), getString(R.string.EmailSignupInvalid));
+                return;
+            }
+
+            nextPressed = true;
+            TLRPC.TL_auth_sendCode sendCode = new TLRPC.TL_auth_sendCode();
+            sendCode.api_hash = BuildVars.APP_HASH;
+            sendCode.api_id = BuildVars.APP_ID;
+            sendCode.phone_number = encoded;
+            sendCode.settings = new TLRPC.TL_codeSettings();
+
+            final Bundle params = new Bundle();
+            params.putString("phone", encoded);
+            params.putString("ephone", encoded);
+            params.putString("phoneFormated", encoded);
+
+            int reqId = ConnectionsManager.getInstance(currentAccount).sendRequest(sendCode, (response, error) -> AndroidUtilities.runOnUIThread(() -> {
+                nextPressed = false;
+                if (error == null) {
+                    if (response instanceof TLRPC.TL_auth_sentCodeSuccess) {
+                        final TLRPC.auth_Authorization auth = ((TLRPC.TL_auth_sentCodeSuccess) response).authorization;
+                        if (auth instanceof TLRPC.TL_auth_authorizationSignUpRequired) {
+                            final TLRPC.TL_auth_authorizationSignUpRequired authorization = (TLRPC.TL_auth_authorizationSignUpRequired) auth;
+                            if (authorization.terms_of_service != null) {
+                                currentTermsOfService = authorization.terms_of_service;
+                            }
+                            setPage(VIEW_REGISTER, true, params, false);
+                        } else {
+                            onAuthSuccess((TLRPC.TL_auth_authorization) auth);
+                        }
+                    } else {
+                        fillNextCodeParams(params, (TLRPC.auth_SentCode) response);
+                    }
+                } else if (error.text != null) {
+                    if (error.text.contains("PHONE_NUMBER_INVALID")) {
+                        needShowAlert(getString(R.string.AppName), getString(R.string.EmailSignupInvalid));
+                    } else if (error.text.startsWith("FLOOD_WAIT")) {
+                        needShowAlert(getString(R.string.AppName), getString(R.string.FloodWait));
+                    } else if (error.code != -1000) {
+                        needShowAlert(getString(R.string.AppName), error.text);
+                    }
+                }
+                needHideProgress(false);
+            }), ConnectionsManager.RequestFlagFailOnServerErrors | ConnectionsManager.RequestFlagWithoutLogin | ConnectionsManager.RequestFlagTryDifferentDc | ConnectionsManager.RequestFlagEnableUnauthorized);
+            needShowProgress(reqId);
+        }
+    }
 
     public class PhoneView extends SlideView implements AdapterView.OnItemSelectedListener, NotificationCenter.NotificationCenterDelegate {
         private AnimatedPhoneNumberEditText codeField;

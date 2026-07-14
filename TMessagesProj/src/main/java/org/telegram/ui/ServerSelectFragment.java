@@ -27,6 +27,7 @@ import org.telegram.messenger.UserConfig;
 import org.telegram.owpengram.OwpengramServer;
 import org.telegram.owpengram.OwpengramServers;
 import org.telegram.tgnet.ConnectionsManager;
+import org.telegram.tgnet.TLRPC;
 import org.telegram.ui.ActionBar.ActionBar;
 import org.telegram.ui.ActionBar.AlertDialog;
 import org.telegram.ui.ActionBar.BaseFragment;
@@ -293,7 +294,7 @@ public class ServerSelectFragment extends BaseFragment {
                 int state = ConnectionsManager.native_getConnectionState(account);
                 if (state == ConnectionsManager.ConnectionStateConnected) {
                     dismissDialog(progress);
-                    goToLogin(server);
+                    checkEmailSignupAndGoToLogin(account, server);
                 } else if (SystemClock.elapsedRealtime() - start > CONNECT_TIMEOUT_MS) {
                     dismissDialog(progress);
                     showConnectFailed(server);
@@ -303,6 +304,33 @@ public class ServerSelectFragment extends BaseFragment {
             }
         };
         uiHandler.postDelayed(connectPoll, 200);
+    }
+
+    // A raw, one-off help.getAppConfig — MessagesController.loadAppConfig()'s
+    // cache fetcher doesn't set the unauthenticated-request flags this needs
+    // pre-login. This is the only place in the login flow that knows both the
+    // account and the server before LoginActivity's view is built, so it's
+    // the natural place to resolve "should the phone screen become an email
+    // screen" instead of guessing inside LoginActivity itself.
+    private void checkEmailSignupAndGoToLogin(int account, OwpengramServer server) {
+        TLRPC.TL_help_getAppConfig req = new TLRPC.TL_help_getAppConfig();
+        req.hash = 0;
+        ConnectionsManager.getInstance(account).sendRequest(req, (response, error) -> AndroidUtilities.runOnUIThread(() -> {
+            boolean emailSignupEnabled = false;
+            if (response instanceof TLRPC.TL_help_appConfig) {
+                TLRPC.JSONValue config = ((TLRPC.TL_help_appConfig) response).config;
+                if (config instanceof TLRPC.TL_jsonObject) {
+                    for (TLRPC.TL_jsonObjectValue entry : ((TLRPC.TL_jsonObject) config).value) {
+                        if ("email_signup_enabled".equals(entry.key) && entry.value instanceof TLRPC.TL_jsonBool) {
+                            emailSignupEnabled = ((TLRPC.TL_jsonBool) entry.value).value;
+                            break;
+                        }
+                    }
+                }
+            }
+            if (destroyed) return;
+            goToLogin(server, emailSignupEnabled);
+        }), ConnectionsManager.RequestFlagWithoutLogin | ConnectionsManager.RequestFlagEnableUnauthorized | ConnectionsManager.RequestFlagFailOnServerErrors);
     }
 
     private void dismissDialog(AlertDialog dialog) {
@@ -317,12 +345,12 @@ public class ServerSelectFragment extends BaseFragment {
         AlertDialog.Builder b = new AlertDialog.Builder(getParentActivity());
         b.setTitle("Connection failed");
         b.setMessage("Couldn't establish a connection to " + server.name + ". You can continue to the login screen and keep trying, or go back.");
-        b.setPositiveButton("Continue", (d, w) -> goToLogin(server));
+        b.setPositiveButton("Continue", (d, w) -> goToLogin(server, false));
         b.setNegativeButton("Back", null);
         showDialog(b.create());
     }
 
-    private void goToLogin(OwpengramServer server) {
+    private void goToLogin(OwpengramServer server, boolean emailSignupEnabled) {
         if (destroyed) return;
         // Parameterless LoginActivity for first login (target == selected account):
         // LoginActivity(n) sets newAccount=true and later calls switchToAccount(n),
@@ -330,6 +358,7 @@ public class ServerSelectFragment extends BaseFragment {
         LoginActivity login = (loginAccount >= 0 && loginAccount != UserConfig.selectedAccount)
                 ? new LoginActivity(loginAccount)
                 : new LoginActivity();
+        login.setEmailSignupEnabled(emailSignupEnabled);
         presentFragment(login, true);
     }
 
