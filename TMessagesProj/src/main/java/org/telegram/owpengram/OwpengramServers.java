@@ -31,7 +31,7 @@ public class OwpengramServers {
     public static final String SERVER_REPO_URL = "https://github.com/owpengram/owpengram-server";
 
     private static final String DEFAULT_HOST = "89.28.58.29";
-    private static final int    DEFAULT_PORT = 10443;
+    private static final int    DEFAULT_PORT = 2398;
 
     private static final String TEAMGRAM_HOST = "43.155.11.190";
     private static final int    TEAMGRAM_PORT = 10443;
