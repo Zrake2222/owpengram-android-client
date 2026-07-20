@@ -72,7 +72,7 @@ function Read-Choice([string]$Prompt, [string[]]$Options, [int]$DefaultIndex = 0
 function Get-DefaultConfig {
     @{
         ServerHost          = '192.168.100.10'
-        ServerPort          = 10443
+        ServerPort          = 2398
         ApiId               = $TestApiId
         ApiHash             = $TestApiHash
         UseTestApi          = $true

@@ -53,7 +53,7 @@ tap **➕ Add server** and fill in:
 
 - **Name** — any label you like (e.g. *My Server*)
 - **Host / IP address** — your server's IP or domain (e.g. `203.0.113.10` or `chat.example.com`)
-- **Port** — `10443` (the default OwpenGram MTProto port)
+- **Port** — `2398` (the default OwpenGram MTProto port)
 - **Multi-DC mode** — leave **OFF** for a self-hosted server (turn ON only for true multi-datacenter, Telegram-style networks)
 - **Main data center** — leave as `2` (the default) for a self-hosted server
 - **RSA Public Key (PEM)** — leave **empty** unless your server uses a custom key

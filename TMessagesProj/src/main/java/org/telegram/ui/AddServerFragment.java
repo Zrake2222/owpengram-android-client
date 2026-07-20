@@ -42,7 +42,7 @@ public class AddServerFragment extends BaseFragment {
     private View multiDcToggle;
     private boolean multiDcEnabled = false;
 
-    private static final int DEFAULT_PORT = 10443;
+    private static final int DEFAULT_PORT = 2398;
     private static final int DEFAULT_SINGLE_MAIN_DC = 2;
 
     public AddServerFragment(OwpengramServer existing, OnSavedListener listener) {
