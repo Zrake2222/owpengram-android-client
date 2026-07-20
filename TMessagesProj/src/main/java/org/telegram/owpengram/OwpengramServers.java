@@ -24,7 +24,6 @@ public class OwpengramServers {
     private static final String KEY_ACCOUNT_SERVER = "account_server_";
 
     public static final String ID_OWPENGRAM = "owpengram";
-    public static final String ID_TEAMGRAM  = "teamgram";
     public static final String ID_TELEGRAM  = "telegram";
 
     /** Public repository of the OwpenGram server, opened from the settings entry. */
@@ -33,20 +32,18 @@ public class OwpengramServers {
     private static final String DEFAULT_HOST = "89.28.58.29";
     private static final int    DEFAULT_PORT = 2398;
 
-    private static final String TEAMGRAM_HOST = "43.155.11.190";
-    private static final int    TEAMGRAM_PORT = 10443;
-
-    // RSA key shared by OwpenGram and Teamgram (single-server MTProto forks)
+    // OwpenGram's own production server RSA key.
     static final String OWPENGRAM_RSA_KEY =
         "-----BEGIN RSA PUBLIC KEY-----\n" +
-        "MIIBCgKCAQEAvKLEOWTzt9Hn3/9Kdp/RdHcEhzmd8xXeLSpHIIzaXTLJDw8BhJy1\n" +
-        "jR/iqeG8Je5yrtVabqMSkA6ltIpgylH///FojMsX1BHu4EPYOXQgB0qOi6kr08iX\n" +
-        "ZIH9/iOPQOWDsL+Lt8gDG0xBy+sPe/2ZHdzKMjX6O9B4sOsxjFrk5qDoWDrioJor\n" +
-        "AJ7eFAfPpOBf2w73ohXudSrJE0lbQ8pCWNpMY8cB9i8r+WBitcvouLDAvmtnTX7a\n" +
-        "khoDzmKgpJBYliAY4qA73v7u5UIepE8QgV0jCOhxJCPubP8dg+/PlLLVKyxU5Cdi\n" +
-        "QtZj2EMy4s9xlNKzX8XezE0MHEa6bQpnFwIDAQAB\n" +
+        "MIIBCgKCAQEA3ZNExKO0xgSd4NLyMFvh5VQS7pZ+Bbz/zn+b21Vr/JQMqAVd0Wsc\n" +
+        "3tw6D5ha+r7MXo0UQfm8aZarckZnoAyG6T38oJH1gYGxFe7AI4X32+Q6OaICZeUP\n" +
+        "Fm7FtmYnUJ+UcZSGdkoVbQj1exXUCS0A+Iu+3N/9b6QxcH7eJrDcrLLZxVF076af\n" +
+        "uYON9S/17/sSYjqEKs3iNy2tbBdCYlI0DC9khUpvUMiV5gcWDq4VZuyYwp/T7Xcc\n" +
+        "LdAToVRGdlmfixMAxFyKoQMYEuMF2/H4lgdi2lns2Aph41msnrlsHh6rnM/3h3K7\n" +
+        "MbKZrIcj9hA82K2Zaa3UYMo01lZ4+GXpCQIDAQAB\n" +
         "-----END RSA PUBLIC KEY-----";
-    static final long OWPENGRAM_RSA_FINGERPRINT = 0xa9e071c1771060cdL;
+    // fingerprint == 0 -> native layer derives it from the PEM (see ConnectionsManager::applyServerConfig).
+    static final long OWPENGRAM_RSA_FINGERPRINT = 0;
 
     // Official Telegram production RSA key (restored from original Android source)
     static final String TELEGRAM_RSA_KEY =
@@ -73,22 +70,6 @@ public class OwpengramServers {
         s.isTelegram         = false;
         s.multiDc            = false;
         s.mainDcId           = 1;
-        s.rsaPublicKey       = OWPENGRAM_RSA_KEY;
-        s.rsaKeyFingerprint  = OWPENGRAM_RSA_FINGERPRINT;
-        return s;
-    }
-
-    public static OwpengramServer teamgramServer() {
-        OwpengramServer s = new OwpengramServer();
-        s.id                 = ID_TEAMGRAM;
-        s.name               = "Teamgram";
-        s.description        = "Open-source MTProto server compatible with Telegram clients. Default test sign-in code: 12345.";
-        s.host               = TEAMGRAM_HOST;
-        s.port               = TEAMGRAM_PORT;
-        s.isOfficial         = true;
-        s.isTelegram         = false;
-        s.multiDc            = false;
-        s.mainDcId           = 2;  // Teamgram assigns users to DC2 (matches desktop)
         s.rsaPublicKey       = OWPENGRAM_RSA_KEY;
         s.rsaKeyFingerprint  = OWPENGRAM_RSA_FINGERPRINT;
         return s;
@@ -208,7 +189,7 @@ public class OwpengramServers {
 
     /**
      * Whether the account's current server exposes Telegram Premium / Stars /
-     * Business features. Telegram and Teamgram always do. Any other (custom
+     * Business features. Telegram always does. Any other (custom
      * self-hosted, e.g. gramsrv) server is trusted based on its own appConfig
      * contract — help.getAppConfig `premium_purchase_blocked` / `stars_purchase_blocked`
      * (MessagesController.premiumLocked / starsLocked, refreshed on every appConfig
@@ -223,7 +204,7 @@ public class OwpengramServers {
         if (s == null) {
             return false;
         }
-        if (s.isTelegram || ID_TEAMGRAM.equals(s.id)) {
+        if (s.isTelegram) {
             return true;
         }
         MessagesController mc = MessagesController.getInstance(accountNum);
@@ -357,7 +338,7 @@ public class OwpengramServers {
      * account that owns the given link host, i.e. whose me_url_prefix host
      * (MessagesController.linkPrefix) equals {@code host} AND whose server explicitly
      * advertises owpengram=true in help.getAppConfig (so the official Telegram network
-     * and teamgram/other forks on a shared host are excluded). Prefers the currently
+     * and other forks on a shared host are excluded). Prefers the currently
      * selected account when it matches. Returns the account index, or -1 if none.
      * Mirrors the desktop OwpengramHostForUrl / OwpengramAccountHost.
      */

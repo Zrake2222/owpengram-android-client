@@ -406,7 +406,6 @@ public class ServerInfoFragment extends BaseFragment {
             int res = 0;
             if (org.telegram.owpengram.OwpengramServers.ID_OWPENGRAM.equals(id)) res = org.telegram.messenger.R.drawable.server_owpengram;
             else if (org.telegram.owpengram.OwpengramServers.ID_TELEGRAM.equals(id)) res = org.telegram.messenger.R.drawable.server_telegram;
-            else if (org.telegram.owpengram.OwpengramServers.ID_TEAMGRAM.equals(id)) res = org.telegram.messenger.R.drawable.server_teamgram;
             if (res == 0 || ctx == null) return null;
             android.graphics.Bitmap b = LOGO_CACHE.get(id);
             if (b == null) {

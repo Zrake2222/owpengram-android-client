@@ -10623,8 +10623,8 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                 languageRow = rowCount++;
                 devicesSectionRow = rowCount++;
                 // Only show the Premium section (Premium/Stars/TON/Business/Gifting)
-                // for servers that actually implement these features (Telegram,
-                // Teamgram). OwpenGram and custom single-servers don't, so hide it.
+                // for servers that actually implement these features (Telegram).
+                // OwpenGram and custom single-servers don't, so hide it.
                 boolean serverPremium = org.telegram.owpengram.OwpengramServers.serverSupportsPremium(currentAccount);
                 if (serverPremium && !getMessagesController().premiumFeaturesBlocked()) {
                     premiumRow = rowCount++;

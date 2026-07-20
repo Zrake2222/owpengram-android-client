@@ -503,7 +503,7 @@ public class MessagesController extends BaseController implements NotificationCe
     public String linkPrefix;
     // OwpenGram: the server's help.getAppConfig advertises owpengram=true. Used to
     // treat links on this account's linkPrefix host as internal owpg links (not the
-    // official Telegram network, and not teamgram/other forks). Mirrors the desktop
+    // official Telegram network, and not other forks). Mirrors the desktop
     // OwpengramAccountHost gate on appConfig().get<bool>("owpengram").
     public boolean owpengramServer;
     public int maxGroupCount;

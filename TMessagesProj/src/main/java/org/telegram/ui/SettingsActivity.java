@@ -715,7 +715,7 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
         items.add(UItem.asShadow(null));
 
         // Only show the Premium section (Premium/Stars/TON/Business/Gift) for servers
-        // that implement these features (Telegram, Teamgram). OwpenGram and custom
+        // that implement these features (Telegram). OwpenGram and custom
         // single-servers don't, so hide the whole block there.
         boolean serverPremium = org.telegram.owpengram.OwpengramServers.serverSupportsPremium(currentAccount);
         if (serverPremium && !getMessagesController().premiumFeaturesBlocked()) {
