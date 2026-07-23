@@ -5195,6 +5195,12 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
                                     builder.setMessage(LocaleController.getString(R.string.FloodWait));
                                 } else if (error.text.equals("USERS_TOO_MUCH")) {
                                     builder.setMessage(LocaleController.getString(R.string.JoinToGroupErrorFull));
+                                } else if (error.text.equals("INVITE_REQUEST_SENT")) {
+                                    // Not an error: the invite requires admin approval and the join
+                                    // request was recorded server-side. This path (state == 1, unlike
+                                    // JoinGroupAlert's own importChatInvite handler) was missing this
+                                    // case entirely and fell through to "channel does not exist" below.
+                                    builder.setMessage(LocaleController.getString(R.string.RequestToJoinSent));
                                 } else {
                                     builder.setMessage(LocaleController.getString(R.string.JoinToGroupErrorNotExist));
                                 }
