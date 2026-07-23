@@ -91,6 +91,32 @@ public class LinkManager {
         if ("tg".equalsIgnoreCase(scheme))
             return handleTg(uri);
 
+        if ("owpg".equalsIgnoreCase(scheme))
+            return handleOwpg(uri);
+
+        return false;
+    }
+
+    // owpg://oauth?token=... and owpg://resolve?domain=oauth&startapp=... are
+    // command-style links (mirroring tg://oauth / tg://resolve), not the
+    // owpg://<server-host>/<path> invite/username form. They must be caught
+    // here, before LaunchActivity's owpg case reinterprets the host as a
+    // server address — otherwise "oauth"/"resolve" gets treated as a host or
+    // username and messages.requestUrlAuth is never sent.
+    private boolean handleOwpg(Uri uri) {
+        final String host = uri.getHost();
+        if (host == null) return false;
+
+        if ("oauth".equalsIgnoreCase(host))
+            return handleOAuth(uri, uri.getQueryParameter("token"));
+
+        if ("resolve".equalsIgnoreCase(host)) {
+            final String domain = uri.getQueryParameter("domain");
+            final String startapp = uri.getQueryParameter("startapp");
+            if ("oauth".equalsIgnoreCase(domain) && !isEmpty(startapp))
+                return handleOAuth(uri, startapp);
+        }
+
         return false;
     }
 
