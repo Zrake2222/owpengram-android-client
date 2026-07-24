@@ -63,7 +63,7 @@ public class OwpengramServers {
         OwpengramServer s = new OwpengramServer();
         s.id                 = ID_OWPENGRAM;
         s.name               = "OwpenGram";
-        s.description        = "Default OwpenGram server configured for this client.";
+        s.description        = "This is a test server demonstrating the platform's capabilities, and it isn't always stable. Use it to explore what OwpenGram can do and try it out without deploying your own server. Please note that all data on this server is temporary. Accounts, messages, and files may be wiped periodically without prior notice during updates and maintenance.";
         s.host               = DEFAULT_HOST;
         s.port               = DEFAULT_PORT;
         s.isOfficial         = true;
