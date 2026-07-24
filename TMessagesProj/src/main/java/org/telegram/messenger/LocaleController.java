@@ -3202,13 +3202,15 @@ public class LocaleController {
     }
 
     /**
-     * OwpenGram: never pull language packs from the server — they may be missing
-     * or malformed on self-hosted backends and would break the UI. Only the
-     * built-in (bundled) language files are used. Mirrors the desktop client's
-     * Owpengram::ShouldUseCloudLangPack() == false.
+     * OwpenGram: cloud language packs are pulled from the server. This used to be
+     * disabled because official Telegram lang packs overwrote OwpenGram's branded
+     * strings with stock "Telegram" wording; the server now re-brands every
+     * langpack string before serving it (see branding.UserVisibleText in
+     * owpengram-server), so that risk no longer applies. Mirrors the desktop
+     * client's Owpengram::ShouldUseCloudLangPack() == true.
      */
     public static boolean shouldUseCloudLangPack() {
-        return false;
+        return true;
     }
 
     public void loadRemoteLanguages(final int currentAccount) {
