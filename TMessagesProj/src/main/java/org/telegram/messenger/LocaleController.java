@@ -34,6 +34,7 @@ import androidx.annotation.RequiresApi;
 import androidx.annotation.StringRes;
 
 import org.telegram.messenger.time.FastDateFormat;
+import org.telegram.owpengram.OwpengramServers;
 import org.telegram.tgnet.Vector;
 import org.telegram.ui.Components.TypefaceSpan;
 import org.telegram.ui.Stars.StarsController;
@@ -764,6 +765,17 @@ public class LocaleController {
         }
 
         AndroidUtilities.runOnUIThread(() -> currentSystemLocale = getSystemLocaleStringIso639());
+
+        NotificationCenter.getGlobalInstance().addObserver((id, account, args) -> {
+            if (id == NotificationCenter.activeAccountChanged) {
+                int newAccount = args.length > 0 && args[0] instanceof Integer ? (Integer) args[0] : UserConfig.selectedAccount;
+                String scope = OwpengramServers.serverScopeKeyForAccount(newAccount);
+                if (lastActiveServerScope == null || !lastActiveServerScope.equals(scope)) {
+                    lastActiveServerScope = scope;
+                    reloadCurrentRemoteLocale(newAccount, null, true, null);
+                }
+            }
+        }, NotificationCenter.activeAccountChanged);
     }
 
     public static String getLanguageFlag(String countryCode) {
@@ -843,6 +855,14 @@ public class LocaleController {
     }
 
     private boolean checkingUpdateForCurrentRemoteLocale;
+
+    // Tracks which self-hosted server (OwpengramServers.serverScopeKeyForAccount,
+    // "" for official Telegram) last supplied the applied langpack strings, since
+    // localeValues is a single global map shared by every account -- without this,
+    // switching the active account to one on a different server would leave that
+    // other server's (possibly differently-branded) strings visible until some
+    // unrelated version-based refresh happened to fire. null means not yet checked.
+    private String lastActiveServerScope;
 
     public void checkUpdateForCurrentRemoteLocale(int currentAccount, int version, int baseVersion) {
         if (currentLocaleInfo == null || !currentLocaleInfo.isRemote() && !currentLocaleInfo.isUnofficial()) {
