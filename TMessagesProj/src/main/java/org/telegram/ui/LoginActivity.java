@@ -1959,6 +1959,12 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
                 params.putInt("nextPhoneLoginDate", res.type.next_phone_login_date);
                 params.putInt("resetAvailablePeriod", res.type.reset_available_period);
                 params.putInt("resetPendingDate", res.type.reset_pending_date);
+                // reset_available_period is a flags-optional field: the server omits it
+                // entirely (rather than sending 0) when this deployment can't actually
+                // service auth.resetLoginEmail (no real SMS channel, or email is the
+                // account's real identity here) -- checking the flag bit is the only way
+                // to tell that apart from "available right now" (also encoded as 0).
+                params.putBoolean("resetAvailable", TLObject.hasFlag(res.type.flags, TLObject.FLAG_3));
                 setPage(VIEW_CODE_EMAIL, animate, params, false);
             } else if (res.type instanceof TLRPC.TL_auth_sentCodeTypeSmsWord) {
                 if (res.type.beginning != null) {
@@ -6437,6 +6443,7 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
         private GoogleSignInAccount googleAccount;
 
         private int resetAvailablePeriod, resetPendingDate;
+        private boolean resetAvailable;
         private String phone, emailPhone, email;
         private String requestPhone, phoneHash;
         private boolean isFromSetup;
@@ -6454,7 +6461,7 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
 
             if (errorViewSwitcher.getCurrentView() != resendFrameLayout) {
                 errorViewSwitcher.showNext();
-                AndroidUtilities.updateViewVisibilityAnimated(cantAccessEmailFrameLayout, resendCodeView.getVisibility() != VISIBLE && activityMode != MODE_CHANGE_LOGIN_EMAIL && !isSetup, 1f, true);
+                AndroidUtilities.updateViewVisibilityAnimated(cantAccessEmailFrameLayout, resendCodeView.getVisibility() != VISIBLE && activityMode != MODE_CHANGE_LOGIN_EMAIL && !isSetup && resetAvailable, 1f, true);
             }
         };
         private Runnable resendCodeTimeout = () -> showResendCodeView(true);
@@ -6557,7 +6564,7 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
             });
 
             cantAccessEmailFrameLayout = new FrameLayout(context);
-            AndroidUtilities.updateViewVisibilityAnimated(cantAccessEmailFrameLayout, activityMode != MODE_CHANGE_LOGIN_EMAIL && !isSetup, 1f, false);
+            AndroidUtilities.updateViewVisibilityAnimated(cantAccessEmailFrameLayout, activityMode != MODE_CHANGE_LOGIN_EMAIL && !isSetup && resetAvailable, 1f, false);
 
             cantAccessEmailView = new TextView(context) {
                 @Override
@@ -6774,7 +6781,7 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
 
         private void showResendCodeView(boolean show) {
             AndroidUtilities.updateViewVisibilityAnimated(resendCodeView, show);
-            AndroidUtilities.updateViewVisibilityAnimated(cantAccessEmailFrameLayout, !show && activityMode != MODE_CHANGE_LOGIN_EMAIL && !isSetup);
+            AndroidUtilities.updateViewVisibilityAnimated(cantAccessEmailFrameLayout, !show && activityMode != MODE_CHANGE_LOGIN_EMAIL && !isSetup && resetAvailable);
 
             if (loginOrView.getVisibility() != GONE) {
                 loginOrView.setLayoutParams(LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 16, Gravity.CENTER, 0, 0, 0, show ? 8 : 16));
@@ -6813,6 +6820,7 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
             email = currentParams.getString("email");
             resetAvailablePeriod = currentParams.getInt("resetAvailablePeriod");
             resetPendingDate = currentParams.getInt("resetPendingDate");
+            resetAvailable = currentParams.getBoolean("resetAvailable");
 
             if (activityMode == MODE_CHANGE_LOGIN_EMAIL) {
                 confirmTextView.setText(LocaleController.formatString(R.string.CheckYourNewEmailSubtitle, email));
@@ -6821,7 +6829,7 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
                 confirmTextView.setText(LocaleController.formatString(R.string.VerificationCodeSubtitle, email));
                 AndroidUtilities.updateViewVisibilityAnimated(cantAccessEmailFrameLayout, false, 1f, false);
             } else {
-                AndroidUtilities.updateViewVisibilityAnimated(cantAccessEmailFrameLayout, true, 1f, false);
+                AndroidUtilities.updateViewVisibilityAnimated(cantAccessEmailFrameLayout, resetAvailable, 1f, false);
 
                 cantAccessEmailView.setVisibility(resetPendingDate == 0 ? VISIBLE : GONE);
                 emailResetInView.setVisibility(resetPendingDate != 0 ? VISIBLE : GONE);
