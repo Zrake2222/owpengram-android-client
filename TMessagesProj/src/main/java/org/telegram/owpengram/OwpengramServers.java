@@ -29,18 +29,18 @@ public class OwpengramServers {
     /** Public repository of the OwpenGram server, opened from the settings entry. */
     public static final String SERVER_REPO_URL = "https://github.com/owpengram/owpengram-server";
 
-    private static final String DEFAULT_HOST = "89.28.58.29";
+    private static final String DEFAULT_HOST = "152.89.254.50";
     private static final int    DEFAULT_PORT = 2398;
 
     // OwpenGram's own production server RSA key.
     static final String OWPENGRAM_RSA_KEY =
         "-----BEGIN RSA PUBLIC KEY-----\n" +
-        "MIIBCgKCAQEA3ZNExKO0xgSd4NLyMFvh5VQS7pZ+Bbz/zn+b21Vr/JQMqAVd0Wsc\n" +
-        "3tw6D5ha+r7MXo0UQfm8aZarckZnoAyG6T38oJH1gYGxFe7AI4X32+Q6OaICZeUP\n" +
-        "Fm7FtmYnUJ+UcZSGdkoVbQj1exXUCS0A+Iu+3N/9b6QxcH7eJrDcrLLZxVF076af\n" +
-        "uYON9S/17/sSYjqEKs3iNy2tbBdCYlI0DC9khUpvUMiV5gcWDq4VZuyYwp/T7Xcc\n" +
-        "LdAToVRGdlmfixMAxFyKoQMYEuMF2/H4lgdi2lns2Aph41msnrlsHh6rnM/3h3K7\n" +
-        "MbKZrIcj9hA82K2Zaa3UYMo01lZ4+GXpCQIDAQAB\n" +
+        "MIIBCgKCAQEAxUi0fsjiop7kTI+c+ATHwIs+XPcircj9WL/tNASH45/phiIvxhPU\n" +
+        "z4T6OgUfDVpQEC8SWCuq77aZAhnpZ0rfQ+h6vEv7X970wIAPT/hbyzekyWEFmH5Q\n" +
+        "RxSPrOMKF/V0wuTOVJcoHZW5r5cK7xsVe/otdYdOgt67kITS7pqoO1BlstRuOEHL\n" +
+        "jhaJ/40dXocrWpDQlJP2TZFwk5JF1Pbx/2mLr/asQapc/qbQP82b+iDLW8QIBT0f\n" +
+        "+xi4Js4k7Qo9kZSuUHUCDzmJt6Z0USBxxp/tSZRVjWRaT9ORDrdyfb/mKFSt9BtC\n" +
+        "B5VRJ1e0q7P/9/w21T0p9uV3eNXhnPnLFQIDAQAB\n" +
         "-----END RSA PUBLIC KEY-----";
     // fingerprint == 0 -> native layer derives it from the PEM (see ConnectionsManager::applyServerConfig).
     static final long OWPENGRAM_RSA_FINGERPRINT = 0;
