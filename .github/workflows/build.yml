@@ -29,9 +29,9 @@ jobs:
           mkdir -p TMessagesProj/config
           keytool -genkey -v \
             -keystore TMessagesProj/config/release.keystore \
-            -storepass android \
-            -alias androiddebugkey \
-            -keypass android \
+            -storepass 817564a59f09a3aa2ebc9029 \
+            -alias owpengramkey \
+            -keypass 817564a59f09a3aa2ebc9029 \
             -keyalg RSA \
             -keysize 2048 \
             -validity 10000 \
