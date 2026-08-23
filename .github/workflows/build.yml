@@ -24,6 +24,19 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
+      - name: Create debug keystore
+        run: |
+          mkdir -p TMessagesProj/config
+          keytool -genkey -v \
+            -keystore TMessagesProj/config/release.keystore \
+            -storepass android \
+            -alias androiddebugkey \
+            -keypass android \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -dname "CN=Verdgram, OU=Dev, O=Verdgram, L=Unknown, S=Unknown, C=US"
+
       - name: Build debug APK
         run: ./gradlew :TMessagesProj_App:assembleAfatDebug --stacktrace
 
